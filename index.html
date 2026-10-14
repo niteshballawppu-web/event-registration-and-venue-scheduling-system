@@ -1,0 +1,3219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CampusBistro - Canteen Food Ordering & Billing DBMS</title>
+  <meta name="description" content="College canteen relational database management system with live POS kiosk, Kitchen Display System (KDS), inventory recipe tracking, analytics, and SQL query reporting." />
+  <meta property="og:title" content="CampusBistro - Canteen Food Ordering & Billing DBMS" />
+  <meta property="og:description" content="College canteen relational database management system with live POS kiosk, Kitchen Display System (KDS), inventory recipe tracking, analytics, and SQL query reporting." />
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            bistro: {
+              50: '#fffbeb',
+              100: '#fef3c7',
+              200: '#fde68a',
+              300: '#fcd34d',
+              400: '#fbbf24',
+              500: '#f59e0b',
+              600: '#d97706',
+              700: '#b45309',
+              800: '#92400e',
+              900: '#78350f',
+            },
+            espresso: {
+              950: '#070a11',
+              900: '#0b1120',
+              850: '#0f172a',
+              800: '#151f38',
+              750: '#1e294b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons & Chart.js -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* Custom Scrollbar & Glassmorphic Utilities */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.5);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(245, 158, 11, 0.3);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(245, 158, 11, 0.6);
+    }
+
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .glass-card {
+      background: rgba(21, 31, 56, 0.65);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .glass-card-hover {
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-card-hover:hover {
+      border-color: rgba(245, 158, 11, 0.35);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 0 15px 0 rgba(245, 158, 11, 0.1);
+    }
+
+    .glass-input {
+      background: rgba(11, 17, 32, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+    .glass-input:focus {
+      border-color: #f59e0b;
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+    }
+
+    /* Print receipt styling */
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #printable-receipt-modal, #printable-receipt-modal * {
+        visibility: visible;
+      }
+      #printable-receipt-modal {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: white !important;
+        color: black !important;
+        padding: 20px;
+        box-shadow: none !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-espresso-950 text-slate-100 font-sans antialiased min-h-screen selection:bg-amber-500/30 selection:text-amber-200">
+
+  <!-- Ambient Glow Effects -->
+  <div class="fixed top-0 left-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none -z-10"></div>
+  <div class="fixed bottom-10 right-1/4 w-96 h-96 bg-orange-600/10 rounded-full blur-3xl pointer-events-none -z-10"></div>
+
+  <!-- Main App Container -->
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar Navigation -->
+    <aside class="w-64 glass-panel border-r border-white/10 flex flex-col flex-shrink-0 z-30 transition-all duration-300">
+      <!-- Canteen Brand -->
+      <div class="p-5 border-b border-white/10 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center shadow-lg shadow-amber-500/20 text-slate-950 font-black">
+          <i data-lucide="utensils-crossed" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-base tracking-tight text-white">CampusBistro</span>
+            <span class="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">DBMS</span>
+          </div>
+          <p class="text-xs text-slate-400">College Food & Billing</p>
+        </div>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="flex-1 p-3 space-y-1.5 overflow-y-auto">
+        <button onclick="switchView('pos')" id="nav-pos" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors text-amber-400 bg-amber-500/15 border border-amber-500/25 shadow-sm">
+          <i data-lucide="layout-grid" class="w-4 h-4"></i>
+          <span>Live POS Kiosk</span>
+        </button>
+
+        <button onclick="switchView('kds')" id="nav-kds" class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors text-slate-300 hover:text-white hover:bg-white/5">
+          <div class="flex items-center gap-3">
+            <i data-lucide="chef-hat" class="w-4 h-4"></i>
+            <span>Kitchen Display (KDS)</span>
+          </div>
+          <span id="kds-badge-count" class="px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">0</span>
+        </button>
+
+        <button onclick="switchView('inventory')" id="nav-inventory" class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors text-slate-300 hover:text-white hover:bg-white/5">
+          <div class="flex items-center gap-3">
+            <i data-lucide="package-search" class="w-4 h-4"></i>
+            <span>Menu & Inventory</span>
+          </div>
+          <span id="pantry-alert-badge" class="hidden px-2 py-0.5 text-xs font-semibold rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">Alert</span>
+        </button>
+
+        <button onclick="switchView('analytics')" id="nav-analytics" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors text-slate-300 hover:text-white hover:bg-white/5">
+          <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+          <span>Analytics & SQL Studio</span>
+        </button>
+
+        <button onclick="switchView('ledger')" id="nav-ledger" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors text-slate-300 hover:text-white hover:bg-white/5">
+          <i data-lucide="receipt-text" class="w-4 h-4"></i>
+          <span>Orders & Billing Audit</span>
+        </button>
+      </nav>
+
+      <!-- System Relational Info Footer -->
+      <div class="p-4 border-t border-white/10 bg-black/20 text-xs text-slate-400 space-y-2">
+        <div class="flex items-center justify-between text-slate-300">
+          <span class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            Relational DB Engine
+          </span>
+          <span class="font-mono text-[11px] text-amber-400">SQLite/Mem</span>
+        </div>
+        <p class="text-[11px] text-slate-400 leading-relaxed">
+          ACID multi-table transactions active with automatic pantry stock & recipe deductions.
+        </p>
+        <div class="pt-2 flex items-center justify-between">
+          <button onclick="openWalletModal()" class="text-xs text-amber-400 hover:text-amber-300 font-medium flex items-center gap-1">
+            <i data-lucide="wallet" class="w-3.5 h-3.5"></i>
+            Top-up Wallet
+          </button>
+          <button onclick="resetDataPrompt()" class="text-xs text-slate-400 hover:text-rose-400 transition-colors" title="Reset sample database">
+            Reset Demo
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-espresso-950/70">
+
+      <!-- Dynamic Top App Header -->
+      <header class="h-16 glass-panel border-b border-white/10 px-6 flex items-center justify-between gap-4 flex-shrink-0 z-20">
+        <!-- Left: Current Context & Live Clock -->
+        <div class="flex items-center gap-6">
+          <div>
+            <h1 id="view-title" class="font-bold text-lg text-white tracking-tight flex items-center gap-2">
+              <span>Live POS & Fast Order Entry</span>
+            </h1>
+            <p id="view-subtitle" class="text-xs text-slate-400">Cashier Terminal · Main Campus Food Court</p>
+          </div>
+
+          <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-mono text-slate-300">
+            <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-400"></i>
+            <span id="live-clock">12:00:00 PM</span>
+            <span class="text-slate-600">|</span>
+            <span class="text-slate-400">Shift #02 (Lunch Peak)</span>
+          </div>
+        </div>
+
+        <!-- Right: Canteen Live Stats Strip & Sound Controller -->
+        <div class="flex items-center gap-3">
+          <!-- Currency Selector Pill -->
+          <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300">
+            <i data-lucide="coins" class="w-3.5 h-3.5 text-amber-400"></i>
+            <span class="text-[11px] text-slate-400 hidden lg:inline">Currency:</span>
+            <select id="currency-format-select" onchange="setCurrencyMode(this.value)" class="bg-transparent text-amber-300 font-semibold text-xs border-0 focus:outline-none cursor-pointer p-0">
+              <option value="Rs" class="bg-slate-900 text-white" selected>Rupees (Rs.)</option>
+              <option value="symbol" class="bg-slate-900 text-white">Rupees (₹)</option>
+              <option value="INR" class="bg-slate-900 text-white">INR (Rupees)</option>
+            </select>
+          </div>
+
+          <!-- Live Sales Today Pill -->
+          <div class="hidden sm:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs">
+            <span class="text-slate-400">Sales Today:</span>
+            <span id="top-sales-metric" class="font-bold text-amber-300 font-mono text-sm">Rs. 0.00</span>
+          </div>
+
+          <!-- Active Tickets Pill -->
+          <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs">
+            <i data-lucide="cooking-pot" class="w-3.5 h-3.5 text-orange-400"></i>
+            <span class="text-slate-400">Active Cooking:</span>
+            <span id="top-cooking-metric" class="font-bold text-orange-300 font-mono">0</span>
+          </div>
+
+          <!-- Audio Bell Toggle -->
+          <button onclick="toggleAudioAlerts()" id="audio-toggle-btn" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 transition-colors" title="Toggle Kitchen Audio Chime">
+            <i data-lucide="volume-2" id="audio-icon" class="w-4 h-4 text-amber-400"></i>
+          </button>
+
+          <!-- Quick Cashier Switch / Current User -->
+          <div class="flex items-center gap-2.5 pl-2 border-l border-white/10">
+            <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-xs">
+              CB
+            </div>
+            <div class="hidden md:block text-left">
+              <p class="text-xs font-medium text-slate-200">Terminal #01</p>
+              <p class="text-[10px] text-emerald-400 flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Online
+              </p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Tab Content Shell -->
+      <main class="flex-1 overflow-hidden relative">
+
+        <!-- ========================================== -->
+        <!-- VIEW 1: LIVE POS & ORDER ENTRY            -->
+        <!-- ========================================== -->
+        <section id="view-pos" class="h-full flex overflow-hidden">
+          <!-- Left: Menu Catalog Grid & Filters -->
+          <div class="flex-1 flex flex-col h-full overflow-hidden p-5">
+            <!-- Search & Filter Bar -->
+            <div class="glass-panel p-3.5 rounded-2xl mb-4 flex flex-col md:flex-row items-center justify-between gap-3">
+              <!-- Search Input -->
+              <div class="relative w-full md:w-72">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                <input type="text" id="pos-search-input" placeholder="Search dishes (e.g., Dosa, Biryani)..." oninput="renderPosMenu()" class="w-full glass-input rounded-xl pl-9 pr-3 py-2 text-xs focus:ring-1 focus:ring-amber-500" />
+              </div>
+
+              <!-- Category Filter Buttons -->
+              <div class="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0" id="pos-category-filters">
+                <!-- Injected via JS -->
+              </div>
+
+              <!-- Veg Filter Toggle -->
+              <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300 whitespace-nowrap pl-2 border-l border-white/10">
+                <input type="checkbox" id="pos-veg-only" onchange="renderPosMenu()" class="w-3.5 h-3.5 accent-emerald-500 rounded bg-slate-800">
+                <span class="flex items-center gap-1">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Veg Only
+                </span>
+              </label>
+            </div>
+
+            <!-- Menu Grid Container -->
+            <div class="flex-1 overflow-y-auto pr-1">
+              <div id="pos-menu-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-12">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Active Order Cart Drawer -->
+          <div class="w-96 glass-panel border-l border-white/10 flex flex-col h-full flex-shrink-0">
+            <!-- Cart Header -->
+            <div class="p-4 border-b border-white/10 flex items-center justify-between bg-black/20">
+              <div class="flex items-center gap-2">
+                <div class="p-2 rounded-lg bg-amber-500/20 text-amber-400">
+                  <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h2 class="font-bold text-sm text-white">Active Order Cart</h2>
+                  <p class="text-[11px] text-slate-400">Token ID: <span id="cart-token-preview" class="font-mono text-amber-400 font-semibold">#TK-101</span></p>
+                </div>
+              </div>
+              <button onclick="clearCart()" class="text-xs text-slate-400 hover:text-rose-400 transition-colors" title="Clear Cart">
+                Clear
+              </button>
+            </div>
+
+            <!-- Customer & Order Mode Selectors -->
+            <div class="p-4 border-b border-white/10 space-y-3 bg-slate-900/40">
+              <!-- Order Type Toggle -->
+              <div class="grid grid-cols-2 gap-1.5 p-1 bg-black/40 rounded-xl border border-white/10 text-xs">
+                <button type="button" onclick="setOrderType('Dine-In')" id="btn-dine-in" class="py-1.5 rounded-lg font-medium transition-colors bg-amber-500 text-slate-950 font-bold shadow-sm">
+                  Dine-In 🍽️
+                </button>
+                <button type="button" onclick="setOrderType('Takeaway')" id="btn-takeaway" class="py-1.5 rounded-lg font-medium transition-colors text-slate-400 hover:text-white">
+                  Takeaway 🥡
+                </button>
+              </div>
+
+              <!-- Customer Select Dropdown -->
+              <div>
+                <label class="block text-[11px] font-medium text-slate-400 mb-1">Select Customer (Student / Faculty)</label>
+                <select id="cart-customer-select" onchange="onCustomerChanged()" class="w-full glass-input rounded-xl px-3 py-2 text-xs">
+                  <!-- Injected via JS -->
+                </select>
+                <!-- Customer Wallet preview line -->
+                <div id="cart-customer-preview" class="mt-1.5 flex items-center justify-between text-[11px] px-1 text-slate-300">
+                  <span>Balance: <strong id="cart-customer-balance" class="font-mono text-emerald-400 font-semibold">Rs. 0.00</strong></span>
+                  <button type="button" onclick="openWalletModal()" class="text-amber-400 hover:underline">+ Top Up</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cart Items List -->
+            <div id="cart-items-container" class="flex-1 overflow-y-auto p-4 space-y-3">
+              <!-- Injected via JS -->
+            </div>
+
+            <!-- Cart Summary & Checkout -->
+            <div class="p-4 border-t border-white/10 bg-black/30 space-y-3">
+              <!-- Financials breakdown -->
+              <div class="space-y-1.5 text-xs text-slate-300">
+                <div class="flex justify-between">
+                  <span class="text-slate-400">Subtotal</span>
+                  <span id="cart-subtotal" class="font-mono font-medium">Rs. 0.00</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-400">CGST + SGST (5%)</span>
+                  <span id="cart-tax" class="font-mono font-medium">Rs. 0.00</span>
+                </div>
+                <div class="flex justify-between items-center">
+                  <label class="flex items-center gap-1.5 text-slate-400 cursor-pointer">
+                    <input type="checkbox" id="cart-discount-toggle" onchange="updateCartTotals()" class="w-3 h-3 accent-amber-500 rounded">
+                    <span>Student Discount (5%)</span>
+                  </label>
+                  <span id="cart-discount" class="font-mono text-emerald-400 font-medium">-Rs. 0.00</span>
+                </div>
+                <div class="pt-2 border-t border-white/10 flex justify-between text-sm font-bold text-white">
+                  <span>Grand Total</span>
+                  <span id="cart-total" class="font-mono text-amber-400 text-base">Rs. 0.00</span>
+                </div>
+              </div>
+
+              <!-- Payment Mode Selector -->
+              <div>
+                <label class="block text-[11px] font-medium text-slate-400 mb-1.5">Payment Method</label>
+                <div class="grid grid-cols-3 gap-1.5 text-xs">
+                  <button type="button" onclick="setPaymentMethod('Wallet')" id="pay-method-Wallet" class="py-2 px-1 rounded-xl border border-amber-500/40 bg-amber-500/20 text-amber-300 font-semibold text-center transition-all">
+                    💳 Wallet
+                  </button>
+                  <button type="button" onclick="setPaymentMethod('UPI')" id="pay-method-UPI" class="py-2 px-1 rounded-xl border border-white/10 bg-white/5 text-slate-300 text-center hover:bg-white/10 transition-all">
+                    📱 UPI QR
+                  </button>
+                  <button type="button" onclick="setPaymentMethod('Cash')" id="pay-method-Cash" class="py-2 px-1 rounded-xl border border-white/10 bg-white/5 text-slate-300 text-center hover:bg-white/10 transition-all">
+                    💵 Cash
+                  </button>
+                </div>
+              </div>
+
+              <!-- Insufficient Wallet Alert if applicable -->
+              <div id="cart-wallet-warning" class="hidden p-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-[11px] flex items-center justify-between">
+                <span>Insufficient wallet balance!</span>
+                <button type="button" onclick="openWalletModal()" class="font-semibold underline">Top Up Now</button>
+              </div>
+
+              <!-- Checkout Action Button -->
+              <button type="button" onclick="checkoutOrder()" id="btn-checkout" class="w-full py-3 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 hover:brightness-110 active:scale-[0.99] transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2">
+                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                <span>Complete Order & Print Bill</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- VIEW 2: KITCHEN DISPLAY SYSTEM (KDS)       -->
+        <!-- ========================================== -->
+        <section id="view-kds" class="hidden h-full flex flex-col p-5 overflow-hidden">
+          <!-- KDS Top Summary Bar -->
+          <div class="glass-panel p-4 rounded-2xl mb-4 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+              <div class="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-500/30 text-orange-400 flex items-center justify-center">
+                <i data-lucide="flame" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h2 class="text-base font-bold text-white">Kitchen Display System (KDS)</h2>
+                <p class="text-xs text-slate-400">Live order queue with real-time status transitions and inventory tracking</p>
+              </div>
+            </div>
+
+            <!-- Stats & Filter -->
+            <div class="flex items-center gap-3">
+              <div class="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs flex items-center gap-2">
+                <span class="text-slate-400">Active Queue:</span>
+                <span id="kds-stat-total" class="font-bold text-amber-400 font-mono">0 Tickets</span>
+              </div>
+              <div class="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs flex items-center gap-2">
+                <span class="text-slate-400">Avg Prep Velocity:</span>
+                <span class="font-bold text-emerald-400 font-mono">~7.8 mins</span>
+              </div>
+              <button onclick="renderKdsBoard()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300" title="Refresh Board">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- KDS Kanban Columns -->
+          <div class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-5 overflow-hidden">
+            <!-- Column 1: Received / Queued -->
+            <div class="glass-panel rounded-2xl flex flex-col overflow-hidden border-t-4 border-t-sky-500">
+              <div class="p-3.5 border-b border-white/10 flex items-center justify-between bg-sky-500/10">
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+                  <h3 class="font-bold text-sm text-sky-200">Received / Queued</h3>
+                </div>
+                <span id="kds-count-received" class="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-sky-500/20 text-sky-300">0</span>
+              </div>
+              <div id="kds-col-received" class="flex-1 p-3 space-y-3 overflow-y-auto">
+                <!-- Tickets injected via JS -->
+              </div>
+            </div>
+
+            <!-- Column 2: Cooking in Kitchen -->
+            <div class="glass-panel rounded-2xl flex flex-col overflow-hidden border-t-4 border-t-amber-500">
+              <div class="p-3.5 border-b border-white/10 flex items-center justify-between bg-amber-500/10">
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+                  <h3 class="font-bold text-sm text-amber-200">Cooking at Stations</h3>
+                </div>
+                <span id="kds-count-cooking" class="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-500/20 text-amber-300">0</span>
+              </div>
+              <div id="kds-col-cooking" class="flex-1 p-3 space-y-3 overflow-y-auto">
+                <!-- Tickets injected via JS -->
+              </div>
+            </div>
+
+            <!-- Column 3: Ready for Pickup -->
+            <div class="glass-panel rounded-2xl flex flex-col overflow-hidden border-t-4 border-t-emerald-500">
+              <div class="p-3.5 border-b border-white/10 flex items-center justify-between bg-emerald-500/10">
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                  <h3 class="font-bold text-sm text-emerald-200">Ready for Counter Pickup</h3>
+                </div>
+                <span id="kds-count-ready" class="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300">0</span>
+              </div>
+              <div id="kds-col-ready" class="flex-1 p-3 space-y-3 overflow-y-auto">
+                <!-- Tickets injected via JS -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- VIEW 3: MENU & INVENTORY MANAGEMENT (CRUD) -->
+        <!-- ========================================== -->
+        <section id="view-inventory" class="hidden h-full flex flex-col p-5 overflow-hidden">
+          <!-- Inventory Subtabs & Actions Bar -->
+          <div class="glass-panel p-4 rounded-2xl mb-4 flex flex-wrap items-center justify-between gap-4">
+            <!-- Subtab Pills -->
+            <div class="flex items-center gap-1.5 p-1 bg-black/40 rounded-xl border border-white/10 text-xs">
+              <button onclick="switchInventorySubtab('items')" id="subtab-btn-items" class="px-4 py-2 rounded-lg font-bold bg-amber-500 text-slate-950 shadow-sm transition-all">
+                Food Menu Items
+              </button>
+              <button onclick="switchInventorySubtab('pantry')" id="subtab-btn-pantry" class="px-4 py-2 rounded-lg font-medium text-slate-300 hover:text-white transition-all">
+                Pantry Ingredients Stock
+              </button>
+              <button onclick="switchInventorySubtab('recipes')" id="subtab-btn-recipes" class="px-4 py-2 rounded-lg font-medium text-slate-300 hover:text-white transition-all">
+                Recipe Formulations (BOM)
+              </button>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center gap-2">
+              <button onclick="openAddFoodModal()" id="btn-add-food" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/20">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span>Add Food Item</span>
+              </button>
+              <button onclick="openRestockPantryModal()" id="btn-restock-pantry" class="hidden px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/20">
+                <i data-lucide="package-plus" class="w-4 h-4"></i>
+                <span>Restock Ingredient</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Subtab 1: Food Items Table -->
+          <div id="subtab-items-container" class="flex-1 glass-panel rounded-2xl overflow-hidden flex flex-col">
+            <div class="p-3.5 border-b border-white/10 flex items-center justify-between gap-4">
+              <div class="relative w-72">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                <input type="text" id="inv-items-search" placeholder="Filter food items..." oninput="renderInventoryItemsTable()" class="w-full glass-input rounded-xl pl-9 pr-3 py-1.5 text-xs" />
+              </div>
+              <span class="text-xs text-slate-400" id="inv-items-count">Total 12 menu offerings</span>
+            </div>
+            <div class="flex-1 overflow-y-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead class="sticky top-0 bg-slate-900/95 border-b border-white/10 text-slate-400 uppercase font-mono text-[11px]">
+                  <tr>
+                    <th class="py-3 px-4">Item ID</th>
+                    <th class="py-3 px-4">Dish Name</th>
+                    <th class="py-3 px-4">Category</th>
+                    <th class="py-3 px-4">Price</th>
+                    <th class="py-3 px-4">Prep Time</th>
+                    <th class="py-3 px-4">Prepared Stock</th>
+                    <th class="py-3 px-4">Status</th>
+                    <th class="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="inv-items-tbody" class="divide-y divide-white/5 text-slate-200">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Subtab 2: Pantry Ingredients Table -->
+          <div id="subtab-pantry-container" class="hidden flex-1 glass-panel rounded-2xl overflow-hidden flex flex-col">
+            <div class="p-3.5 border-b border-white/10 flex items-center justify-between">
+              <p class="text-xs text-slate-300">Raw ingredient stock levels in central canteen storage. System automatically decrements quantities when orders are cooked.</p>
+              <span class="text-xs text-slate-400" id="inv-pantry-count">10 Raw Ingredients Tracked</span>
+            </div>
+            <div class="flex-1 overflow-y-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead class="sticky top-0 bg-slate-900/95 border-b border-white/10 text-slate-400 uppercase font-mono text-[11px]">
+                  <tr>
+                    <th class="py-3 px-4">Ing. ID</th>
+                    <th class="py-3 px-4">Ingredient Name</th>
+                    <th class="py-3 px-4">Current Stock</th>
+                    <th class="py-3 px-4">Min. Threshold</th>
+                    <th class="py-3 px-4">Unit Cost</th>
+                    <th class="py-3 px-4">Health Status</th>
+                    <th class="py-3 px-4 text-right">Stock Action</th>
+                  </tr>
+                </thead>
+                <tbody id="inv-pantry-tbody" class="divide-y divide-white/5 text-slate-200">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Subtab 3: Recipe Formulations (BOM) -->
+          <div id="subtab-recipes-container" class="hidden flex-1 glass-panel rounded-2xl p-4 overflow-y-auto space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-bold text-sm text-white">Bill of Materials (BOM) & Kitchen Recipes</h3>
+                <p class="text-xs text-slate-400">Specifies exact ingredient ratios required per single portion</p>
+              </div>
+              <div class="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
+                ⚡ Automatic inventory depletion on order placement
+              </div>
+            </div>
+            <div id="recipes-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <!-- Injected via JS -->
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- VIEW 4: ANALYTICS & SQL STUDIO             -->
+        <!-- ========================================== -->
+        <section id="view-analytics" class="hidden h-full flex flex-col p-5 overflow-y-auto space-y-5">
+          <!-- Top KPI Cards -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Total Revenue -->
+            <div class="glass-panel p-4 rounded-2xl relative overflow-hidden">
+              <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+                <span>Total Revenue (Rupees)</span>
+                <i data-lucide="coins" class="w-4 h-4 text-amber-400"></i>
+              </div>
+              <div id="kpi-revenue" class="text-2xl font-bold font-mono text-amber-400">Rs. 0.00</div>
+              <div class="mt-2 flex items-center text-[11px] text-emerald-400 gap-1 font-medium">
+                <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+                <span>+18.4% vs Yesterday</span>
+              </div>
+            </div>
+
+            <!-- Orders Processed -->
+            <div class="glass-panel p-4 rounded-2xl relative overflow-hidden">
+              <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+                <span>Total Orders Placed</span>
+                <i data-lucide="check-check" class="w-4 h-4 text-emerald-400"></i>
+              </div>
+              <div id="kpi-orders" class="text-2xl font-bold font-mono text-white">0</div>
+              <div class="mt-2 text-[11px] text-slate-400">
+                Avg order ticket: <span id="kpi-avg-ticket" class="text-slate-200 font-mono">Rs. 110</span>
+              </div>
+            </div>
+
+            <!-- Active Kitchen Load -->
+            <div class="glass-panel p-4 rounded-2xl relative overflow-hidden">
+              <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+                <span>Active Kitchen Tickets</span>
+                <i data-lucide="flame" class="w-4 h-4 text-orange-400"></i>
+              </div>
+              <div id="kpi-active-tickets" class="text-2xl font-bold font-mono text-orange-400">0</div>
+              <div class="mt-2 text-[11px] text-slate-400">
+                Peak load: <span class="text-emerald-400">Within capacity</span>
+              </div>
+            </div>
+
+            <!-- Critical Low Stock Alerts -->
+            <div class="glass-panel p-4 rounded-2xl relative overflow-hidden">
+              <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+                <span>Critical Stock Alerts</span>
+                <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-400"></i>
+              </div>
+              <div id="kpi-low-stock" class="text-2xl font-bold font-mono text-rose-400">0</div>
+              <div class="mt-2 text-[11px] text-rose-400/80">
+                Ingredients below reorder threshold
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts Section -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <!-- Chart 1: Hourly Order Distribution -->
+            <div class="lg:col-span-2 glass-panel p-4 rounded-2xl flex flex-col">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <h3 class="font-bold text-sm text-white">Hourly Order Rush Profile</h3>
+                  <p class="text-[11px] text-slate-400">Peak dining rush distribution throughout canteen operating hours</p>
+                </div>
+                <span class="text-[11px] px-2 py-0.5 rounded bg-white/5 text-slate-400 font-mono">COUNT(order_id)</span>
+              </div>
+              <div class="flex-1 min-h-[240px] relative">
+                <canvas id="chart-hourly"></canvas>
+              </div>
+            </div>
+
+            <!-- Chart 2: Category Revenue Share -->
+            <div class="glass-panel p-4 rounded-2xl flex flex-col">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <h3 class="font-bold text-sm text-white">Category Revenue Share</h3>
+                  <p class="text-[11px] text-slate-400">Gross sales share across food categories</p>
+                </div>
+                <i data-lucide="pie-chart" class="w-4 h-4 text-amber-400"></i>
+              </div>
+              <div class="flex-1 min-h-[240px] relative flex items-center justify-center">
+                <canvas id="chart-category"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chart 3: Top 5 Best Sellers -->
+          <div class="glass-panel p-4 rounded-2xl">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h3 class="font-bold text-sm text-white">Top 5 Best-Selling Dishes Today</h3>
+                <p class="text-[11px] text-slate-400">Ranking by total portions served</p>
+              </div>
+              <span class="text-[11px] px-2 py-0.5 rounded bg-white/5 text-slate-400 font-mono">SUM(quantity)</span>
+            </div>
+            <div class="h-60 relative">
+              <canvas id="chart-top-dishes"></canvas>
+            </div>
+          </div>
+
+          <!-- SQL Report Simulator & Relational DBMS Showcase -->
+          <div class="glass-panel p-5 rounded-2xl space-y-4">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-white/10 pb-4">
+              <div>
+                <div class="flex items-center gap-2">
+                  <i data-lucide="database" class="w-5 h-5 text-amber-400"></i>
+                  <h3 class="font-bold text-base text-white">Relational DBMS Query Simulator</h3>
+                  <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase font-mono">SQL Engine</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-0.5">Simulate and execute real multi-table SQL queries directly against the in-memory database.</p>
+              </div>
+
+              <!-- Export CSV Button -->
+              <button onclick="exportSqlResultCsv()" class="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-slate-200 flex items-center gap-2 transition-colors self-start md:self-auto">
+                <i data-lucide="download" class="w-3.5 h-3.5 text-amber-400"></i>
+                <span>Export Query Result (CSV)</span>
+              </button>
+            </div>
+
+            <!-- SQL Query Selector Pills -->
+            <div class="flex items-center gap-2 overflow-x-auto pb-1" id="sql-query-presets">
+              <button onclick="runSqlQueryPreset(1)" id="sql-btn-1" class="px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap bg-amber-500 text-slate-950 font-bold transition-all">
+                1. Category Sales Breakdown
+              </button>
+              <button onclick="runSqlQueryPreset(2)" id="sql-btn-2" class="px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap bg-white/5 hover:bg-white/10 text-slate-300 transition-all">
+                2. Ingredients Consumption Log
+              </button>
+              <button onclick="runSqlQueryPreset(3)" id="sql-btn-3" class="px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap bg-white/5 hover:bg-white/10 text-slate-300 transition-all">
+                3. Customer Wallet & Spend
+              </button>
+              <button onclick="runSqlQueryPreset(4)" id="sql-btn-4" class="px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap bg-white/5 hover:bg-white/10 text-slate-300 transition-all">
+                4. Critical Low-Stock Breach
+              </button>
+              <button onclick="runSqlQueryPreset(5)" id="sql-btn-5" class="px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap bg-white/5 hover:bg-white/10 text-slate-300 transition-all">
+                5. Cancellations & Refund Audit
+              </button>
+            </div>
+
+            <!-- SQL Code Box with Syntax Styling -->
+            <div class="rounded-xl bg-slate-950/90 border border-white/10 p-4 font-mono text-xs overflow-x-auto relative shadow-inner">
+              <div class="flex items-center justify-between text-[11px] text-slate-500 pb-2 mb-2 border-b border-white/5">
+                <span class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <span id="sql-query-title" class="text-slate-300 font-semibold font-sans">Query #1: Daily Sales & Revenue Breakdown by Category</span>
+                </span>
+                <span id="sql-execution-time" class="text-amber-400 font-mono">Execution: 1.2ms · Index Scan</span>
+              </div>
+              <pre id="sql-code-display" class="text-slate-300 leading-relaxed overflow-x-auto"></pre>
+            </div>
+
+            <!-- Dynamic SQL Result Table -->
+            <div class="rounded-xl border border-white/10 overflow-hidden bg-black/20">
+              <div class="p-2.5 bg-white/5 border-b border-white/10 flex items-center justify-between text-xs">
+                <span class="font-medium text-slate-300">Result Dataset</span>
+                <span id="sql-result-rows-count" class="text-slate-400 font-mono text-[11px]">0 rows returned</span>
+              </div>
+              <div class="overflow-x-auto max-h-72">
+                <table class="w-full text-left text-xs border-collapse">
+                  <thead id="sql-table-thead" class="sticky top-0 bg-slate-900 border-b border-white/10 text-slate-400 font-mono text-[11px]">
+                    <!-- Injected via JS -->
+                  </thead>
+                  <tbody id="sql-table-tbody" class="divide-y divide-white/5 text-slate-300">
+                    <!-- Injected via JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- VIEW 5: ORDERS & BILLING LEDGER            -->
+        <!-- ========================================== -->
+        <section id="view-ledger" class="hidden h-full flex flex-col p-5 overflow-hidden">
+          <!-- Ledger Filter Bar -->
+          <div class="glass-panel p-4 rounded-2xl mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-4">
+              <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                <i data-lucide="receipt" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h2 class="text-base font-bold text-white">Orders & Billing Audit Ledger</h2>
+                <p class="text-xs text-slate-400">Complete multi-table transaction history with payment reconciliation</p>
+              </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="flex items-center gap-3">
+              <!-- Status filter -->
+              <select id="ledger-status-filter" onchange="renderLedgerTable()" class="glass-input rounded-xl px-3 py-1.5 text-xs">
+                <option value="ALL">All Order Statuses</option>
+                <option value="Received">Received / Queued</option>
+                <option value="Kitchen">Kitchen Cooking</option>
+                <option value="Ready">Ready for Pickup</option>
+                <option value="Completed">Completed</option>
+                <option value="Cancelled">Cancelled & Refunded</option>
+              </select>
+
+              <!-- Payment filter -->
+              <select id="ledger-payment-filter" onchange="renderLedgerTable()" class="glass-input rounded-xl px-3 py-1.5 text-xs">
+                <option value="ALL">All Payment Modes</option>
+                <option value="Wallet">Campus Wallet</option>
+                <option value="UPI">UPI QR</option>
+                <option value="Cash">Cash Counter</option>
+              </select>
+
+              <!-- Search -->
+              <input type="text" id="ledger-search" placeholder="Search order/customer..." oninput="renderLedgerTable()" class="glass-input rounded-xl px-3 py-1.5 text-xs w-48" />
+            </div>
+          </div>
+
+          <!-- Ledger Table Container -->
+          <div class="flex-1 glass-panel rounded-2xl overflow-hidden flex flex-col">
+            <div class="flex-1 overflow-y-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead class="sticky top-0 bg-slate-900/95 border-b border-white/10 text-slate-400 uppercase font-mono text-[11px]">
+                  <tr>
+                    <th class="py-3 px-4">Order / Token</th>
+                    <th class="py-3 px-4">Bill No</th>
+                    <th class="py-3 px-4">Customer</th>
+                    <th class="py-3 px-4">Items Summary</th>
+                    <th class="py-3 px-4">Payment</th>
+                    <th class="py-3 px-4">Total Amount</th>
+                    <th class="py-3 px-4">Timestamp</th>
+                    <th class="py-3 px-4">Order Status</th>
+                    <th class="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="ledger-tbody" class="divide-y divide-white/5 text-slate-200">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODALS & POPUPS                            -->
+  <!-- ========================================== -->
+
+  <!-- Modal 1: Printable Thermal Receipt Modal -->
+  <div id="receipt-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white text-slate-900 rounded-2xl max-w-sm w-full p-6 shadow-2xl relative font-mono text-xs" id="printable-receipt-modal">
+      <!-- Close button (no-print) -->
+      <button onclick="closeReceiptModal()" class="no-print absolute top-3 right-3 text-slate-400 hover:text-slate-800 p-1">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <!-- Receipt Content -->
+      <div id="receipt-body" class="space-y-3">
+        <!-- Injected via JS -->
+      </div>
+
+      <!-- Action buttons (no-print) -->
+      <div class="no-print pt-4 border-t border-slate-200 flex gap-2">
+        <button onclick="window.print()" class="flex-1 py-2 px-3 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 flex items-center justify-center gap-1.5">
+          <i data-lucide="printer" class="w-4 h-4"></i>
+          <span>Print Receipt</span>
+        </button>
+        <button onclick="closeReceiptModal()" class="py-2 px-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Wallet Top-Up Modal -->
+  <div id="wallet-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="glass-panel rounded-2xl max-w-md w-full p-6 border border-white/10 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+            <i data-lucide="wallet" class="w-4 h-4"></i>
+          </div>
+          <h3 class="font-bold text-sm text-white">Campus Card Wallet Recharge</h3>
+        </div>
+        <button onclick="closeWalletModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Select Customer</label>
+          <select id="wallet-cust-select" onchange="updateWalletModalPreview()" class="w-full glass-input rounded-xl px-3 py-2 text-xs">
+            <!-- Injected via JS -->
+          </select>
+        </div>
+
+        <div class="p-3 rounded-xl bg-black/30 border border-white/5 flex items-center justify-between text-xs">
+          <span class="text-slate-400">Current Balance:</span>
+          <span id="wallet-modal-current-bal" class="font-bold font-mono text-emerald-400 text-sm">Rs. 0.00</span>
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Top-up Preset Amount</label>
+          <div class="grid grid-cols-4 gap-2 mb-2">
+            <button type="button" onclick="setTopupAmount(100)" class="py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-mono font-semibold border border-white/10">+Rs. 100</button>
+            <button type="button" onclick="setTopupAmount(250)" class="py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-mono font-semibold border border-white/10">+Rs. 250</button>
+            <button type="button" onclick="setTopupAmount(500)" class="py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-mono font-semibold border border-white/10">+Rs. 500</button>
+            <button type="button" onclick="setTopupAmount(1000)" class="py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-mono font-semibold border border-white/10">+Rs. 1,000</button>
+          </div>
+          <div class="relative">
+            <span id="wallet-currency-label" class="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-amber-400 font-bold text-xs">Rs.</span>
+            <input type="number" id="wallet-amount-input" value="250" min="10" step="10" class="w-full glass-input rounded-xl pl-10 pr-3 py-2 text-xs font-mono text-white" />
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-2 flex gap-2">
+        <button onclick="executeWalletTopup()" class="flex-1 py-2.5 rounded-xl font-bold text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center gap-1.5 transition-all shadow-md shadow-amber-500/20">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span>Recharge Wallet Balance</span>
+        </button>
+        <button onclick="closeWalletModal()" class="py-2.5 px-4 rounded-xl text-xs bg-white/5 hover:bg-white/10 text-slate-300">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: Add/Edit Food Item Modal -->
+  <div id="food-item-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="glass-panel rounded-2xl max-w-lg w-full p-6 border border-white/10 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 id="food-modal-title" class="font-bold text-sm text-white">Add New Food Item</h3>
+        <button onclick="closeFoodItemModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="food-item-form" onsubmit="saveFoodItem(event)" class="space-y-3 text-xs">
+        <input type="hidden" id="food-form-id" value="">
+        
+        <div>
+          <label class="block text-slate-400 mb-1">Item Name</label>
+          <input type="text" id="food-form-name" required placeholder="e.g., Paneer Tikka Wrap" class="w-full glass-input rounded-xl px-3 py-2">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Category</label>
+            <select id="food-form-cat" class="w-full glass-input rounded-xl px-3 py-2">
+              <option value="1">Breakfast</option>
+              <option value="2">Lunch & Meals</option>
+              <option value="3">Snacks & Quick Bites</option>
+              <option value="4">Beverages</option>
+              <option value="5">Bakery & Desserts</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Price (Rupees / Rs.)</label>
+            <input type="number" id="food-form-price" required min="1" step="1" value="70" class="w-full glass-input rounded-xl px-3 py-2 font-mono">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Stock Quantity</label>
+            <input type="number" id="food-form-stock" required min="0" value="20" class="w-full glass-input rounded-xl px-3 py-2 font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Prep Time</label>
+            <input type="text" id="food-form-preptime" value="8 min" class="w-full glass-input rounded-xl px-3 py-2">
+          </div>
+          <div class="flex flex-col justify-end">
+            <label class="flex items-center gap-2 cursor-pointer pb-2">
+              <input type="checkbox" id="food-form-veg" checked class="w-4 h-4 accent-emerald-500 rounded">
+              <span class="text-slate-300">Pure Veg</span>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1">Description / Notes</label>
+          <input type="text" id="food-form-desc" placeholder="Brief ingredient or taste highlights" class="w-full glass-input rounded-xl px-3 py-2">
+        </div>
+
+        <div class="pt-3 border-t border-white/10 flex justify-end gap-2">
+          <button type="button" onclick="closeFoodItemModal()" class="py-2 px-4 rounded-xl text-slate-300 bg-white/5 hover:bg-white/10">
+            Cancel
+          </button>
+          <button type="submit" class="py-2 px-5 rounded-xl font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-500/20">
+            Save Food Item
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 4: Restock Pantry Ingredient Modal -->
+  <div id="restock-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="glass-panel rounded-2xl max-w-sm w-full p-6 border border-white/10 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="font-bold text-sm text-white">Restock Pantry Ingredient</h3>
+        <button onclick="closeRestockModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Ingredient</label>
+          <select id="restock-ing-select" onchange="updateRestockModalPreview()" class="w-full glass-input rounded-xl px-3 py-2">
+            <!-- Injected via JS -->
+          </select>
+        </div>
+
+        <div class="p-3 rounded-xl bg-black/30 border border-white/5 flex items-center justify-between">
+          <span class="text-slate-400">Current Stock:</span>
+          <span id="restock-current-label" class="font-mono font-bold text-amber-400">0 kg</span>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1">Add Quantity to Restock</label>
+          <input type="number" id="restock-qty-input" value="10" min="0.5" step="0.5" class="w-full glass-input rounded-xl px-3 py-2 font-mono">
+        </div>
+      </div>
+
+      <div class="pt-2 flex gap-2">
+        <button onclick="executePantryRestock()" class="flex-1 py-2.5 rounded-xl font-bold text-xs bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span>Confirm Restock</span>
+        </button>
+        <button onclick="closeRestockModal()" class="py-2.5 px-4 rounded-xl text-xs bg-white/5 hover:bg-white/10 text-slate-300">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 space-y-2 pointer-events-none"></div>
+
+  <!-- ========================================== -->
+  <!-- JAVASCRIPT APPLICATION CORE                -->
+  <!-- ========================================== -->
+  <script>
+    /* =========================================================================
+       1. DATA STRUCTURES & INITIAL MOCK DATA
+       ========================================================================= */
+
+    const INITIAL_CATEGORIES = [
+      { id: 1, name: 'Breakfast', icon: 'coffee' },
+      { id: 2, name: 'Lunch & Meals', icon: 'utensils' },
+      { id: 3, name: 'Snacks & Quick Bites', icon: 'sandwich' },
+      { id: 4, name: 'Beverages', icon: 'cup-soda' },
+      { id: 5, name: 'Bakery & Desserts', icon: 'cake' }
+    ];
+
+    const INITIAL_FOOD_ITEMS = [
+      { id: 101, name: 'Masala Dosa', categoryId: 1, price: 55, stockQuantity: 24, veg: true, prepTime: '8 min', desc: 'Crispy fermented crepe filled with spiced potato masala, served with coconut chutney & sambar.' },
+      { id: 102, name: 'Paneer Butter Biryani', categoryId: 2, price: 140, stockQuantity: 15, veg: true, prepTime: '12 min', desc: 'Fragrant aromatic basmati rice layered with marinated cottage cheese, saffron & mint.' },
+      { id: 103, name: 'South Indian Thali Special', categoryId: 2, price: 120, stockQuantity: 8, veg: true, prepTime: '10 min', desc: 'Complete platter with steamed rice, 2 rotis, paneer gravy, dal tadka, curd & sweet.' },
+      { id: 104, name: 'Chole Bhature (2 pcs)', categoryId: 1, price: 90, stockQuantity: 14, veg: true, prepTime: '12 min', desc: 'Golden fluffy deep-fried bhaturas served with spicy Punjabi chickpea curry.' },
+      { id: 105, name: 'Crispy Samosa Chat', categoryId: 3, price: 45, stockQuantity: 32, veg: true, prepTime: '5 min', desc: 'Crushed potato samosas topped with seasoned yogurt, tamarind chutney and sev.' },
+      { id: 106, name: 'Grilled Cheese Corn Sandwich', categoryId: 3, price: 65, stockQuantity: 18, veg: true, prepTime: '7 min', desc: 'Toasted whole wheat bread loaded with sweet corn, melted cheddar cheese & Italian herbs.' },
+      { id: 107, name: 'Veggie Supreme Burger', categoryId: 3, price: 75, stockQuantity: 12, veg: true, prepTime: '8 min', desc: 'Crisp vegetable patty with creamy mayo, cheese slice, lettuce & pickles.' },
+      { id: 108, name: 'Madras Filter Coffee', categoryId: 4, price: 25, stockQuantity: 50, veg: true, prepTime: '3 min', desc: 'Traditional South Indian froth-topped decoction brew with fresh dairy milk.' },
+      { id: 109, name: 'Cold Coffee Float', categoryId: 4, price: 60, stockQuantity: 22, veg: true, prepTime: '4 min', desc: 'Creamy blended iced coffee topped with a rich vanilla ice cream scoop.' },
+      { id: 110, name: 'Mango Thick Lassi', categoryId: 4, price: 40, stockQuantity: 20, veg: true, prepTime: '4 min', desc: 'Rich whipped chilled yogurt blended with sweet Alphonso mango pulp and pistachios.' },
+      { id: 111, name: 'Chocolate Croissant', categoryId: 5, price: 55, stockQuantity: 6, veg: true, prepTime: '2 min', desc: 'Flaky French butter pastry filled with melted Belgian dark chocolate ganache.' },
+      { id: 112, name: 'Warm Gulab Jamun (2 pcs)', categoryId: 5, price: 35, stockQuantity: 28, veg: true, prepTime: '2 min', desc: 'Soft khoya dumplings soaked in fragrant rose and cardamom sugar syrup.' }
+    ];
+
+    const INITIAL_INGREDIENTS = [
+      { id: 'ING_01', name: 'Basmati Rice', stockInPantry: 24.5, unit: 'kg', minThreshold: 8.0, unitCost: 85 },
+      { id: 'ING_02', name: 'Paneer (Cottage Cheese)', stockInPantry: 4.8, unit: 'kg', minThreshold: 6.0, unitCost: 320 },
+      { id: 'ING_03', name: 'Cooking Oil', stockInPantry: 18.0, unit: 'L', minThreshold: 10.0, unitCost: 130 },
+      { id: 'ING_04', name: 'Potatoes (Aloo)', stockInPantry: 32.0, unit: 'kg', minThreshold: 15.0, unitCost: 28 },
+      { id: 'ING_05', name: 'Fresh Milk (Dairy)', stockInPantry: 14.5, unit: 'L', minThreshold: 12.0, unitCost: 60 },
+      { id: 'ING_06', name: 'Coffee Powder', stockInPantry: 2.1, unit: 'kg', minThreshold: 3.0, unitCost: 480 },
+      { id: 'ING_07', name: 'Refined Flour (Maida)', stockInPantry: 19.0, unit: 'kg', minThreshold: 10.0, unitCost: 42 },
+      { id: 'ING_08', name: 'Spices & Garam Masala', stockInPantry: 5.5, unit: 'kg', minThreshold: 3.0, unitCost: 350 },
+      { id: 'ING_09', name: 'Cheese Slices', stockInPantry: 35.0, unit: 'packs', minThreshold: 20.0, unitCost: 15 },
+      { id: 'ING_10', name: 'Curd / Fresh Yogurt', stockInPantry: 8.5, unit: 'kg', minThreshold: 5.0, unitCost: 55 }
+    ];
+
+    // Recipes mapping food item ID to required pantry ingredients per portion
+    const INITIAL_RECIPES = {
+      101: [ { ingId: 'ING_07', qty: 0.15, unit: 'kg' }, { ingId: 'ING_04', qty: 0.12, unit: 'kg' }, { ingId: 'ING_03', qty: 0.02, unit: 'L' } ],
+      102: [ { ingId: 'ING_01', qty: 0.25, unit: 'kg' }, { ingId: 'ING_02', qty: 0.12, unit: 'kg' }, { ingId: 'ING_08', qty: 0.03, unit: 'kg' }, { ingId: 'ING_03', qty: 0.03, unit: 'L' } ],
+      103: [ { ingId: 'ING_01', qty: 0.20, unit: 'kg' }, { ingId: 'ING_02', qty: 0.06, unit: 'kg' }, { ingId: 'ING_07', qty: 0.08, unit: 'kg' }, { ingId: 'ING_03', qty: 0.03, unit: 'L' } ],
+      104: [ { ingId: 'ING_07', qty: 0.20, unit: 'kg' }, { ingId: 'ING_03', qty: 0.05, unit: 'L' }, { ingId: 'ING_08', qty: 0.03, unit: 'kg' } ],
+      105: [ { ingId: 'ING_04', qty: 0.16, unit: 'kg' }, { ingId: 'ING_07', qty: 0.06, unit: 'kg' }, { ingId: 'ING_10', qty: 0.08, unit: 'kg' }, { ingId: 'ING_03', qty: 0.03, unit: 'L' } ],
+      106: [ { ingId: 'ING_09', qty: 1.0, unit: 'packs' }, { ingId: 'ING_07', qty: 0.08, unit: 'kg' } ],
+      107: [ { ingId: 'ING_09', qty: 1.0, unit: 'packs' }, { ingId: 'ING_04', qty: 0.10, unit: 'kg' }, { ingId: 'ING_03', qty: 0.02, unit: 'L' } ],
+      108: [ { ingId: 'ING_06', qty: 0.02, unit: 'kg' }, { ingId: 'ING_05', qty: 0.18, unit: 'L' } ],
+      109: [ { ingId: 'ING_06', qty: 0.02, unit: 'kg' }, { ingId: 'ING_05', qty: 0.25, unit: 'L' } ],
+      110: [ { ingId: 'ING_10', qty: 0.25, unit: 'kg' }, { ingId: 'ING_05', qty: 0.05, unit: 'L' } ],
+      111: [ { ingId: 'ING_07', qty: 0.12, unit: 'kg' } ],
+      112: [ { ingId: 'ING_05', qty: 0.15, unit: 'L' }, { ingId: 'ING_03', qty: 0.02, unit: 'L' } ]
+    };
+
+    const INITIAL_CUSTOMERS = [
+      { id: 'CUST-101', name: 'Aarav Sharma', type: 'Student', rollNo: 'CS-2024-042', walletBalance: 540.00, phone: '98765-43210' },
+      { id: 'CUST-102', name: 'Priya Patel', type: 'Student', rollNo: 'EC-2023-118', walletBalance: 180.00, phone: '98112-33445' },
+      { id: 'CUST-103', name: 'Prof. Ramesh Iyer', type: 'Faculty', rollNo: 'FAC-PHY-09', walletBalance: 1450.00, phone: '94451-22990' },
+      { id: 'CUST-104', name: 'Sneha Kulkarni', type: 'Student', rollNo: 'ME-2025-081', walletBalance: 75.00, phone: '97654-11223' },
+      { id: 'CUST-105', name: 'Dr. Vikram Malhotra', type: 'Staff/Dean', rollNo: 'ADM-REG-03', walletBalance: 2100.00, phone: '99880-55441' }
+    ];
+
+    const INITIAL_ORDERS = [
+      {
+        orderId: 'ORD-1001',
+        tokenNo: 101,
+        customerId: 'CUST-102',
+        timestamp: '2026-10-12T08:30:00.000Z',
+        timeLabel: '08:30 AM',
+        status: 'Completed',
+        orderType: 'Dine-In',
+        items: [
+          { itemId: 102, name: 'Paneer Butter Biryani', price: 140, quantity: 1, subtotal: 140 },
+          { itemId: 110, name: 'Mango Thick Lassi', price: 40, quantity: 1, subtotal: 40 }
+        ],
+        billId: 'BILL-5001'
+      },
+      {
+        orderId: 'ORD-1002',
+        tokenNo: 102,
+        customerId: 'CUST-103',
+        timestamp: '2026-10-12T09:15:00.000Z',
+        timeLabel: '09:15 AM',
+        status: 'Ready',
+        orderType: 'Dine-In',
+        items: [
+          { itemId: 103, name: 'South Indian Thali Special', price: 120, quantity: 1, subtotal: 120 },
+          { itemId: 108, name: 'Madras Filter Coffee', price: 25, quantity: 2, subtotal: 50 }
+        ],
+        billId: 'BILL-5002'
+      },
+      {
+        orderId: 'ORD-1003',
+        tokenNo: 103,
+        customerId: 'CUST-101',
+        timestamp: '2026-10-12T09:40:00.000Z',
+        timeLabel: '09:40 AM',
+        status: 'Kitchen',
+        orderType: 'Takeaway',
+        items: [
+          { itemId: 101, name: 'Masala Dosa', price: 55, quantity: 2, subtotal: 110 },
+          { itemId: 108, name: 'Madras Filter Coffee', price: 25, quantity: 1, subtotal: 25 }
+        ],
+        billId: 'BILL-5003'
+      },
+      {
+        orderId: 'ORD-1004',
+        tokenNo: 104,
+        customerId: 'CUST-105',
+        timestamp: '2026-10-12T10:05:00.000Z',
+        timeLabel: '10:05 AM',
+        status: 'Kitchen',
+        orderType: 'Dine-In',
+        items: [
+          { itemId: 106, name: 'Grilled Cheese Corn Sandwich', price: 65, quantity: 2, subtotal: 130 },
+          { itemId: 109, name: 'Cold Coffee Float', price: 60, quantity: 1, subtotal: 60 }
+        ],
+        billId: 'BILL-5004'
+      },
+      {
+        orderId: 'ORD-1005',
+        tokenNo: 105,
+        customerId: 'CUST-104',
+        timestamp: '2026-10-12T10:20:00.000Z',
+        timeLabel: '10:20 AM',
+        status: 'Received',
+        orderType: 'Takeaway',
+        items: [
+          { itemId: 105, name: 'Crispy Samosa Chat', price: 45, quantity: 2, subtotal: 90 },
+          { itemId: 109, name: 'Cold Coffee Float', price: 60, quantity: 1, subtotal: 60 }
+        ],
+        billId: 'BILL-5005'
+      },
+      {
+        orderId: 'ORD-1006',
+        tokenNo: 106,
+        customerId: 'CUST-101',
+        timestamp: '2026-10-12T07:50:00.000Z',
+        timeLabel: '07:50 AM',
+        status: 'Cancelled',
+        orderType: 'Dine-In',
+        items: [
+          { itemId: 104, name: 'Chole Bhature (2 pcs)', price: 90, quantity: 1, subtotal: 90 },
+          { itemId: 112, name: 'Warm Gulab Jamun (2 pcs)', price: 35, quantity: 1, subtotal: 35 }
+        ],
+        billId: 'BILL-5006'
+      }
+    ];
+
+    const INITIAL_BILLS = [
+      { billId: 'BILL-5001', orderId: 'ORD-1001', subtotal: 180, tax: 9.00, discount: 9.00, totalAmount: 180.00, paymentMethod: 'UPI', paymentStatus: 'Paid', transactionRef: 'UPI-REF-91820', timestamp: '2026-10-12T08:30:00.000Z' },
+      { billId: 'BILL-5002', orderId: 'ORD-1002', subtotal: 170, tax: 8.50, discount: 0.00, totalAmount: 178.50, paymentMethod: 'Wallet', paymentStatus: 'Paid', transactionRef: 'WAL-DED-3019', timestamp: '2026-10-12T09:15:00.000Z' },
+      { billId: 'BILL-5003', orderId: 'ORD-1003', subtotal: 135, tax: 6.75, discount: 6.75, totalAmount: 135.00, paymentMethod: 'Cash', paymentStatus: 'Paid', transactionRef: 'CASH-REC-0041', timestamp: '2026-10-12T09:40:00.000Z' },
+      { billId: 'BILL-5004', orderId: 'ORD-1004', subtotal: 190, tax: 9.50, discount: 0.00, totalAmount: 199.50, paymentMethod: 'Wallet', paymentStatus: 'Paid', transactionRef: 'WAL-DED-3020', timestamp: '2026-10-12T10:05:00.000Z' },
+      { billId: 'BILL-5005', orderId: 'ORD-1005', subtotal: 150, tax: 7.50, discount: 7.50, totalAmount: 150.00, paymentMethod: 'UPI', paymentStatus: 'Paid', transactionRef: 'UPI-REF-91844', timestamp: '2026-10-12T10:20:00.000Z' },
+      { billId: 'BILL-5006', orderId: 'ORD-1006', subtotal: 125, tax: 6.25, discount: 6.25, totalAmount: 125.00, paymentMethod: 'UPI', paymentStatus: 'Refunded', transactionRef: 'REFUND-RET-109', timestamp: '2026-10-12T07:50:00.000Z' }
+    ];
+
+    const INITIAL_STOCK_USAGE_LOGS = [
+      { logId: 'LOG-801', orderId: 'ORD-1001', ingredientId: 'ING_01', ingredientName: 'Basmati Rice', deductedQty: 0.25, unit: 'kg', status: 'Deducted', timestamp: '2026-10-12T08:30:00.000Z' },
+      { logId: 'LOG-802', orderId: 'ORD-1001', ingredientId: 'ING_02', ingredientName: 'Paneer', deductedQty: 0.12, unit: 'kg', status: 'Deducted', timestamp: '2026-10-12T08:30:00.000Z' },
+      { logId: 'LOG-803', orderId: 'ORD-1002', ingredientId: 'ING_01', ingredientName: 'Basmati Rice', deductedQty: 0.20, unit: 'kg', status: 'Deducted', timestamp: '2026-10-12T09:15:00.000Z' },
+      { logId: 'LOG-804', orderId: 'ORD-1002', ingredientId: 'ING_05', ingredientName: 'Fresh Milk', deductedQty: 0.36, unit: 'L', status: 'Deducted', timestamp: '2026-10-12T09:15:00.000Z' },
+      { logId: 'LOG-805', orderId: 'ORD-1003', ingredientId: 'ING_04', ingredientName: 'Potatoes (Aloo)', deductedQty: 0.24, unit: 'kg', status: 'Deducted', timestamp: '2026-10-12T09:40:00.000Z' },
+      { logId: 'LOG-806', orderId: 'ORD-1004', ingredientId: 'ING_09', ingredientName: 'Cheese Slices', deductedQty: 2.0, unit: 'packs', status: 'Deducted', timestamp: '2026-10-12T10:05:00.000Z' }
+    ];
+
+    /* =========================================================================
+       2. STATE STORE WITH LOCALSTORAGE PERSISTENCE
+       ========================================================================= */
+
+    const DB_KEY = 'CampusBistro_DBMS_v1';
+
+    let db = {
+      categories: [],
+      foodItems: [],
+      ingredients: [],
+      recipes: {},
+      customers: [],
+      orders: [],
+      bills: [],
+      stockLogs: [],
+      settings: {
+        audioEnabled: true,
+        currencyMode: 'Rs',
+        nextToken: 107,
+        nextOrderNum: 1007,
+        nextBillNum: 5007
+      }
+    };
+
+    function getCurrencySymbol() {
+      const mode = (db && db.settings && db.settings.currencyMode) || 'Rs';
+      if (mode === 'symbol') return '₹';
+      if (mode === 'INR') return 'INR ';
+      if (mode === 'rupees') return 'Rs. ';
+      return 'Rs. ';
+    }
+
+    function formatRupees(amount, decimals = 2) {
+      const num = Number(amount) || 0;
+      const formatted = decimals > 0 ? num.toFixed(decimals) : Math.round(num).toString();
+      return `${getCurrencySymbol()}${formatted}`;
+    }
+
+    function setCurrencyMode(mode) {
+      if (!db.settings) db.settings = {};
+      db.settings.currencyMode = mode;
+      saveDatabase();
+      updateCurrencyLabelsUI();
+      renderAll();
+      showToast(`Currency set to ${mode === 'symbol' ? 'Rupees (₹)' : mode === 'INR' ? 'Indian Rupees (INR)' : 'Rupees (Rs.)'}`, 'info');
+    }
+
+    function updateCurrencyLabelsUI() {
+      const select = document.getElementById('currency-format-select');
+      if (select && db.settings) {
+        select.value = db.settings.currencyMode || 'Rs';
+      }
+      const walletLabel = document.getElementById('wallet-currency-label');
+      if (walletLabel) {
+        walletLabel.innerText = getCurrencySymbol().trim();
+      }
+    }
+
+    function loadDatabase() {
+      const stored = localStorage.getItem(DB_KEY);
+      if (stored) {
+        try {
+          db = JSON.parse(stored);
+          if (!db.settings) db.settings = {};
+          if (!db.settings.currencyMode) db.settings.currencyMode = 'Rs';
+        } catch(e) {
+          console.error("Failed parsing localStorage, resetting to default", e);
+          initDefaultDatabase();
+        }
+      } else {
+        initDefaultDatabase();
+      }
+    }
+
+    function initDefaultDatabase() {
+      db = {
+        categories: JSON.parse(JSON.stringify(INITIAL_CATEGORIES)),
+        foodItems: JSON.parse(JSON.stringify(INITIAL_FOOD_ITEMS)),
+        ingredients: JSON.parse(JSON.stringify(INITIAL_INGREDIENTS)),
+        recipes: JSON.parse(JSON.stringify(INITIAL_RECIPES)),
+        customers: JSON.parse(JSON.stringify(INITIAL_CUSTOMERS)),
+        orders: JSON.parse(JSON.stringify(INITIAL_ORDERS)),
+        bills: JSON.parse(JSON.stringify(INITIAL_BILLS)),
+        stockLogs: JSON.parse(JSON.stringify(INITIAL_STOCK_USAGE_LOGS)),
+        settings: {
+          audioEnabled: true,
+          currencyMode: 'Rs',
+          nextToken: 107,
+          nextOrderNum: 1007,
+          nextBillNum: 5007
+        }
+      };
+      saveDatabase();
+    }
+
+    function saveDatabase() {
+      localStorage.setItem(DB_KEY, JSON.stringify(db));
+    }
+
+    function resetDataPrompt() {
+      if (confirm("Reset CampusBistro database to pristine demo state? All test transactions will be restored.")) {
+        localStorage.removeItem(DB_KEY);
+        initDefaultDatabase();
+        activeCart = [];
+        renderAll();
+        showToast("Database restored to demo defaults", "info");
+      }
+    }
+
+    /* =========================================================================
+       3. AUDIO SYNTHESIZER (Web Audio API)
+       ========================================================================= */
+
+    let audioCtx = null;
+    function playChime(type) {
+      if (!db.settings.audioEnabled) return;
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'checkout') {
+          // Pleasant high chord chime
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(523.25, now); // C5
+          osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.1); // E5
+          osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.25); // G5
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+          osc.start(now);
+          osc.stop(now + 0.6);
+        } else if (type === 'kds_step') {
+          // Bell ding
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, now); // A5
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+          osc.start(now);
+          osc.stop(now + 0.4);
+        } else if (type === 'cancel') {
+          // Low alert tone
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.linearRampToValueAtTime(160, now + 0.3);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+          osc.start(now);
+          osc.stop(now + 0.35);
+        }
+      } catch (err) {
+        console.warn("Audio Context blocked or unsupported:", err);
+      }
+    }
+
+    function toggleAudioAlerts() {
+      db.settings.audioEnabled = !db.settings.audioEnabled;
+      saveDatabase();
+      const btn = document.getElementById('audio-icon');
+      if (db.settings.audioEnabled) {
+        btn.setAttribute('data-lucide', 'volume-2');
+        btn.classList.remove('text-slate-500');
+        btn.classList.add('text-amber-400');
+        showToast("Kitchen audio alerts enabled", "info");
+      } else {
+        btn.setAttribute('data-lucide', 'volume-x');
+        btn.classList.remove('text-amber-400');
+        btn.classList.add('text-slate-500');
+        showToast("Kitchen audio muted", "info");
+      }
+      lucide.createIcons();
+    }
+
+    /* =========================================================================
+       4. UI NAVIGATION & TABS
+       ========================================================================= */
+
+    let currentView = 'pos';
+    const VIEW_META = {
+      pos: { title: 'Live POS & Fast Order Entry', subtitle: 'Cashier Terminal · Main Campus Food Court' },
+      kds: { title: 'Kitchen Display System (KDS)', subtitle: 'Real-time Chef Stations & Token Queue' },
+      inventory: { title: 'Menu & Inventory Management (CRUD)', subtitle: 'Food Catalog, Pantry Stocks & Recipe BOM' },
+      analytics: { title: 'Analytics & SQL Query Studio', subtitle: 'Executive Dashboard & Relational DBMS Showcase' },
+      ledger: { title: 'Orders & Billing Audit Ledger', subtitle: 'Multi-Table Transactions & Financial Reconciliation' }
+    };
+
+    function switchView(viewName) {
+      currentView = viewName;
+
+      // Update Nav Buttons
+      ['pos', 'kds', 'inventory', 'analytics', 'ledger'].forEach(v => {
+        const btn = document.getElementById(`nav-${v}`);
+        const sec = document.getElementById(`view-${v}`);
+        if (v === viewName) {
+          btn.className = "w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors text-amber-400 bg-amber-500/15 border border-amber-500/25 shadow-sm";
+          sec.classList.remove('hidden');
+        } else {
+          btn.className = "w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors text-slate-300 hover:text-white hover:bg-white/5";
+          sec.classList.add('hidden');
+        }
+      });
+
+      // Update Header
+      const meta = VIEW_META[viewName];
+      document.getElementById('view-title').innerHTML = `<span>${meta.title}</span>`;
+      document.getElementById('view-subtitle').innerText = meta.subtitle;
+
+      // View Specific Render Triggers
+      if (viewName === 'pos') renderPosMenu();
+      if (viewName === 'kds') renderKdsBoard();
+      if (viewName === 'inventory') renderInventoryView();
+      if (viewName === 'analytics') renderAnalyticsView();
+      if (viewName === 'ledger') renderLedgerTable();
+
+      lucide.createIcons();
+    }
+
+    /* =========================================================================
+       5. ACTIVE POS CART STATE & LOGIC
+       ========================================================================= */
+
+    let activeCart = [];
+    let selectedCategoryId = 'ALL';
+    let currentOrderType = 'Dine-In';
+    let currentPaymentMethod = 'Wallet';
+    let selectedCustomerId = 'CUST-101';
+
+    function setOrderType(type) {
+      currentOrderType = type;
+      const dineBtn = document.getElementById('btn-dine-in');
+      const takeBtn = document.getElementById('btn-takeaway');
+      if (type === 'Dine-In') {
+        dineBtn.className = "py-1.5 rounded-lg font-bold bg-amber-500 text-slate-950 shadow-sm";
+        takeBtn.className = "py-1.5 rounded-lg font-medium text-slate-400 hover:text-white";
+      } else {
+        takeBtn.className = "py-1.5 rounded-lg font-bold bg-amber-500 text-slate-950 shadow-sm";
+        dineBtn.className = "py-1.5 rounded-lg font-medium text-slate-400 hover:text-white";
+      }
+    }
+
+    function setPaymentMethod(method) {
+      currentPaymentMethod = method;
+      ['Wallet', 'UPI', 'Cash'].forEach(m => {
+        const btn = document.getElementById(`pay-method-${m}`);
+        if (m === method) {
+          btn.className = "py-2 px-1 rounded-xl border border-amber-500/40 bg-amber-500/20 text-amber-300 font-semibold text-center transition-all shadow-sm";
+        } else {
+          btn.className = "py-2 px-1 rounded-xl border border-white/10 bg-white/5 text-slate-300 text-center hover:bg-white/10 transition-all";
+        }
+      });
+      updateCartTotals();
+    }
+
+    function onCustomerChanged() {
+      selectedCustomerId = document.getElementById('cart-customer-select').value;
+      updateCustomerBalanceDisplay();
+      updateCartTotals();
+    }
+
+    function updateCustomerBalanceDisplay() {
+      const cust = db.customers.find(c => c.id === selectedCustomerId);
+      if (cust) {
+        document.getElementById('cart-customer-balance').innerText = formatRupees(cust.walletBalance);
+      }
+    }
+
+    function addToCart(itemId) {
+      const food = db.foodItems.find(f => f.id === itemId);
+      if (!food) return;
+
+      if (food.stockQuantity <= 0) {
+        showToast(`${food.name} is currently out of prepared stock!`, 'warning');
+        return;
+      }
+
+      const existing = activeCart.find(c => c.itemId === itemId);
+      if (existing) {
+        if (existing.quantity >= food.stockQuantity) {
+          showToast(`Cannot add more: only ${food.stockQuantity} portions in stock!`, 'warning');
+          return;
+        }
+        existing.quantity += 1;
+        existing.subtotal = existing.quantity * existing.price;
+      } else {
+        activeCart.push({
+          itemId: food.id,
+          name: food.name,
+          price: food.price,
+          quantity: 1,
+          subtotal: food.price
+        });
+      }
+
+      renderCart();
+      renderPosMenu();
+    }
+
+    function adjustCartQty(itemId, delta) {
+      const itemIndex = activeCart.findIndex(c => c.itemId === itemId);
+      if (itemIndex === -1) return;
+
+      const food = db.foodItems.find(f => f.id === itemId);
+      const cartItem = activeCart[itemIndex];
+
+      if (delta > 0) {
+        if (food && cartItem.quantity >= food.stockQuantity) {
+          showToast(`Only ${food.stockQuantity} portions available!`, 'warning');
+          return;
+        }
+        cartItem.quantity += 1;
+        cartItem.subtotal = cartItem.quantity * cartItem.price;
+      } else {
+        cartItem.quantity -= 1;
+        if (cartItem.quantity <= 0) {
+          activeCart.splice(itemIndex, 1);
+        } else {
+          cartItem.subtotal = cartItem.quantity * cartItem.price;
+        }
+      }
+
+      renderCart();
+      renderPosMenu();
+    }
+
+    function removeCartItem(itemId) {
+      activeCart = activeCart.filter(c => c.itemId !== itemId);
+      renderCart();
+      renderPosMenu();
+    }
+
+    function clearCart() {
+      activeCart = [];
+      renderCart();
+      renderPosMenu();
+      showToast("Order cart cleared", "info");
+    }
+
+    function renderCart() {
+      const container = document.getElementById('cart-items-container');
+      document.getElementById('cart-token-preview').innerText = `#TK-${db.settings.nextToken}`;
+
+      if (activeCart.length === 0) {
+        container.innerHTML = `
+          <div class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500">
+            <div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 text-slate-400">
+              <i data-lucide="utensils" class="w-6 h-6"></i>
+            </div>
+            <p class="text-xs font-medium text-slate-400">Order Cart is Empty</p>
+            <p class="text-[11px] text-slate-500 mt-1 max-w-[180px]">Select delicious items from the menu to start order</p>
+          </div>
+        `;
+        lucide.createIcons();
+        updateCartTotals();
+        return;
+      }
+
+      let html = '';
+      activeCart.forEach(item => {
+        html += `
+          <div class="p-2.5 rounded-xl bg-slate-900/80 border border-white/5 flex items-center justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="font-semibold text-xs text-slate-100 truncate">${item.name}</div>
+              <div class="text-[11px] text-amber-400/90 font-mono">${formatRupees(item.price, 0)} each</div>
+            </div>
+
+            <!-- Stepper -->
+            <div class="flex items-center gap-1.5 bg-black/40 rounded-lg p-1 border border-white/10">
+              <button onclick="adjustCartQty(${item.itemId}, -1)" class="w-6 h-6 rounded flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 text-xs font-bold">-</button>
+              <span class="w-5 text-center font-mono font-bold text-xs text-white">${item.quantity}</span>
+              <button onclick="adjustCartQty(${item.itemId}, 1)" class="w-6 h-6 rounded flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 text-xs font-bold">+</button>
+            </div>
+
+            <!-- Subtotal & Delete -->
+            <div class="text-right">
+              <div class="font-mono text-xs font-bold text-slate-200">${formatRupees(item.subtotal)}</div>
+              <button onclick="removeCartItem(${item.itemId})" class="text-[10px] text-slate-500 hover:text-rose-400">Remove</button>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+      updateCartTotals();
+      lucide.createIcons();
+    }
+
+    function updateCartTotals() {
+      const subtotal = activeCart.reduce((sum, i) => sum + i.subtotal, 0);
+      const taxRate = 0.05; // 5% GST
+      const tax = +(subtotal * taxRate).toFixed(2);
+      
+      const discountToggle = document.getElementById('cart-discount-toggle');
+      let discount = 0;
+      if (discountToggle && discountToggle.checked) {
+        discount = +(subtotal * 0.05).toFixed(2); // 5% student discount
+      }
+
+      const total = +(subtotal + tax - discount).toFixed(2);
+
+      document.getElementById('cart-subtotal').innerText = formatRupees(subtotal);
+      document.getElementById('cart-tax').innerText = formatRupees(tax);
+      document.getElementById('cart-discount').innerText = `-${formatRupees(discount)}`;
+      document.getElementById('cart-total').innerText = formatRupees(total);
+
+      // Wallet Validation check
+      const cust = db.customers.find(c => c.id === selectedCustomerId);
+      const warningEl = document.getElementById('cart-wallet-warning');
+      const checkoutBtn = document.getElementById('btn-checkout');
+
+      if (currentPaymentMethod === 'Wallet' && cust && activeCart.length > 0) {
+        if (cust.walletBalance < total) {
+          warningEl.classList.remove('hidden');
+          checkoutBtn.classList.add('opacity-50', 'pointer-events-none');
+        } else {
+          warningEl.classList.add('hidden');
+          checkoutBtn.classList.remove('opacity-50', 'pointer-events-none');
+        }
+      } else {
+        warningEl.classList.add('hidden');
+        checkoutBtn.classList.remove('opacity-50', 'pointer-events-none');
+      }
+    }
+
+    /* =========================================================================
+       6. POS MENU CATALOG RENDERING
+       ========================================================================= */
+
+    function renderPosCategoryPills() {
+      const container = document.getElementById('pos-category-filters');
+      let html = `
+        <button onclick="filterPosCategory('ALL')" class="px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${selectedCategoryId === 'ALL' ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20' : 'bg-white/5 text-slate-300 hover:bg-white/10'}">
+          All Offerings
+        </button>
+      `;
+
+      db.categories.forEach(cat => {
+        const active = selectedCategoryId === cat.id;
+        html += `
+          <button onclick="filterPosCategory(${cat.id})" class="px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${active ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20' : 'bg-white/5 text-slate-300 hover:bg-white/10'}">
+            ${cat.name}
+          </button>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function filterPosCategory(catId) {
+      selectedCategoryId = catId;
+      renderPosCategoryPills();
+      renderPosMenu();
+    }
+
+    function renderPosMenu() {
+      renderPosCategoryPills();
+
+      const searchInput = document.getElementById('pos-search-input').value.toLowerCase().trim();
+      const vegOnly = document.getElementById('pos-veg-only').checked;
+      const grid = document.getElementById('pos-menu-grid');
+
+      let filtered = db.foodItems.filter(item => {
+        if (selectedCategoryId !== 'ALL' && item.categoryId !== selectedCategoryId) return false;
+        if (vegOnly && !item.veg) return false;
+        if (searchInput && !item.name.toLowerCase().includes(searchInput) && !item.desc.toLowerCase().includes(searchInput)) return false;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-16 text-center text-slate-500">
+            <p class="text-sm font-semibold">No food items found matching criteria</p>
+            <p class="text-xs text-slate-600 mt-1">Try resetting filters or search terms</p>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      filtered.forEach(item => {
+        const inCart = activeCart.find(c => c.itemId === item.id);
+        const isOutOfStock = item.stockQuantity <= 0;
+        const isLowStock = item.stockQuantity > 0 && item.stockQuantity <= 5;
+        const cat = db.categories.find(c => c.id === item.categoryId);
+
+        // Icon/Graphic per category
+        let categoryIcon = 'utensils';
+        if (item.categoryId === 1) categoryIcon = 'coffee';
+        if (item.categoryId === 4) categoryIcon = 'cup-soda';
+        if (item.categoryId === 5) categoryIcon = 'cake';
+        if (item.categoryId === 3) categoryIcon = 'sandwich';
+
+        html += `
+          <div class="glass-card glass-card-hover rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden ${isOutOfStock ? 'opacity-60 border-rose-500/20' : ''}">
+            <div>
+              <!-- Header Badges -->
+              <div class="flex items-center justify-between gap-2 mb-2.5">
+                <span class="text-[11px] font-medium text-slate-400 flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full ${item.veg ? 'bg-emerald-500' : 'bg-rose-500'} ring-2 ring-white/10"></span>
+                  ${cat ? cat.name : 'Canteen'}
+                </span>
+
+                <!-- Live Stock Pill -->
+                ${isOutOfStock ? 
+                  `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">Out of Stock</span>` :
+                  isLowStock ? 
+                  `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">${item.stockQuantity} left</span>` :
+                  `<span class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/5 text-slate-400">${item.stockQuantity} in stock</span>`
+                }
+              </div>
+
+              <!-- Title & Price -->
+              <h4 class="font-bold text-sm text-white tracking-tight leading-snug">${item.name}</h4>
+              <p class="text-[11px] text-slate-400 line-clamp-2 mt-1 leading-relaxed">${item.desc}</p>
+            </div>
+
+            <!-- Footer: Price & Add Button -->
+            <div class="pt-3.5 mt-3 border-t border-white/5 flex items-center justify-between">
+              <div>
+                <span class="text-xs text-slate-400">Price:</span>
+                <span class="font-mono text-base font-bold text-amber-400 ml-1">${formatRupees(item.price, 0)}</span>
+              </div>
+
+              ${inCart ? `
+                <div class="flex items-center gap-1 bg-amber-500/20 rounded-xl p-0.5 border border-amber-500/30">
+                  <button onclick="adjustCartQty(${item.id}, -1)" class="w-6 h-6 rounded-lg flex items-center justify-center text-amber-400 hover:bg-amber-500/30 font-bold text-xs">-</button>
+                  <span class="w-6 text-center font-mono font-bold text-xs text-amber-300">${inCart.quantity}</span>
+                  <button onclick="adjustCartQty(${item.id}, 1)" class="w-6 h-6 rounded-lg flex items-center justify-center text-amber-400 hover:bg-amber-500/30 font-bold text-xs">+</button>
+                </div>
+              ` : `
+                <button onclick="addToCart(${item.id})" ${isOutOfStock ? 'disabled' : ''} class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${isOutOfStock ? 'bg-white/5 text-slate-500 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-sm shadow-amber-500/20 active:scale-95'}">
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                  <span>Add</span>
+                </button>
+              `}
+            </div>
+          </div>
+        `;
+      });
+
+      grid.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    /* =========================================================================
+       7. MULTI-TABLE ACID TRANSACTION: CHECKOUT & INVENTORY DEDUCTION
+       ========================================================================= */
+
+    function checkoutOrder() {
+      if (activeCart.length === 0) {
+        showToast("Cart is empty! Select at least one item.", "warning");
+        return;
+      }
+
+      const cust = db.customers.find(c => c.id === selectedCustomerId);
+      if (!cust) {
+        showToast("Please select a customer for billing", "warning");
+        return;
+      }
+
+      // 1. Stock Pre-Check
+      for (const cartItem of activeCart) {
+        const food = db.foodItems.find(f => f.id === cartItem.itemId);
+        if (!food || food.stockQuantity < cartItem.quantity) {
+          showToast(`Stock violation: ${cartItem.name} has only ${food ? food.stockQuantity : 0} portions left!`, "warning");
+          return;
+        }
+      }
+
+      // 2. Financial Calculations
+      const subtotal = activeCart.reduce((sum, i) => sum + i.subtotal, 0);
+      const tax = +(subtotal * 0.05).toFixed(2);
+      const discountToggle = document.getElementById('cart-discount-toggle');
+      const discount = (discountToggle && discountToggle.checked) ? +(subtotal * 0.05).toFixed(2) : 0;
+      const totalAmount = +(subtotal + tax - discount).toFixed(2);
+
+      // 3. Wallet deduction check
+      if (currentPaymentMethod === 'Wallet') {
+        if (cust.walletBalance < totalAmount) {
+          showToast(`Insufficient balance! Current: ${formatRupees(cust.walletBalance)}, Needed: ${formatRupees(totalAmount)}`, "warning");
+          return;
+        }
+      }
+
+      // BEGIN RELATIONAL TRANSACTION
+      const orderId = `ORD-${db.settings.nextOrderNum}`;
+      const billId = `BILL-${db.settings.nextBillNum}`;
+      const tokenNo = db.settings.nextToken;
+      const nowIso = new Date().toISOString();
+      const timeLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      // Step A: Deduct Food Item Stock & Generate Ingredient Usage Logs
+      activeCart.forEach(cartItem => {
+        const food = db.foodItems.find(f => f.id === cartItem.itemId);
+        if (food) {
+          food.stockQuantity -= cartItem.quantity;
+        }
+
+        // Deplete Raw Pantry Ingredients according to BOM recipe
+        const recipeList = db.recipes[cartItem.itemId];
+        if (recipeList && recipeList.length > 0) {
+          recipeList.forEach(rec => {
+            const ingredient = db.ingredients.find(ing => ing.id === rec.ingId);
+            const totalDeducted = +(rec.qty * cartItem.quantity).toFixed(3);
+            if (ingredient) {
+              ingredient.stockInPantry = Math.max(0, +(ingredient.stockInPantry - totalDeducted).toFixed(3));
+
+              // Record stock usage log
+              db.stockLogs.unshift({
+                logId: `LOG-${Math.floor(1000 + Math.random() * 9000)}`,
+                orderId: orderId,
+                ingredientId: ingredient.id,
+                ingredientName: ingredient.name,
+                deductedQty: totalDeducted,
+                unit: rec.unit,
+                status: 'Deducted',
+                timestamp: nowIso
+              });
+            }
+          });
+        }
+      });
+
+      // Step B: Deduct Customer Wallet if applicable
+      if (currentPaymentMethod === 'Wallet') {
+        cust.walletBalance = +(cust.walletBalance - totalAmount).toFixed(2);
+      }
+
+      // Step C: Create Order Record
+      const newOrder = {
+        orderId: orderId,
+        tokenNo: tokenNo,
+        customerId: cust.id,
+        timestamp: nowIso,
+        timeLabel: timeLabel,
+        status: 'Received', // Queued for Kitchen Display
+        orderType: currentOrderType,
+        items: JSON.parse(JSON.stringify(activeCart)),
+        billId: billId
+      };
+      db.orders.unshift(newOrder);
+
+      // Step D: Create Relational Bill Record
+      const newBill = {
+        billId: billId,
+        orderId: orderId,
+        subtotal: subtotal,
+        tax: tax,
+        discount: discount,
+        totalAmount: totalAmount,
+        paymentMethod: currentPaymentMethod,
+        paymentStatus: 'Paid',
+        transactionRef: currentPaymentMethod === 'Wallet' ? `WAL-DED-${Math.floor(1000 + Math.random() * 9000)}` :
+                        currentPaymentMethod === 'UPI' ? `UPI-TXN-${Math.floor(100000 + Math.random() * 900000)}` :
+                        `CASH-REC-${Math.floor(1000 + Math.random() * 9000)}`,
+        timestamp: nowIso
+      };
+      db.bills.unshift(newBill);
+
+      // Advance Sequence Numbers
+      db.settings.nextToken += 1;
+      db.settings.nextOrderNum += 1;
+      db.settings.nextBillNum += 1;
+
+      // Commit to storage
+      saveDatabase();
+
+      // Audio feedback & notification
+      playChime('checkout');
+      showToast(`Order #${tokenNo} placed successfully! Bill: ${billId}`, "success");
+
+      // Open Instant Receipt Modal
+      openReceiptModal(orderId);
+
+      // Reset cart and refresh UI
+      activeCart = [];
+      renderCart();
+      renderPosMenu();
+      updateTopBarMetrics();
+    }
+
+    /* =========================================================================
+       8. KITCHEN DISPLAY SYSTEM (KDS) LOGIC & KANBAN
+       ========================================================================= */
+
+    function renderKdsBoard() {
+      const colReceived = document.getElementById('kds-col-received');
+      const colCooking = document.getElementById('kds-col-cooking');
+      const colReady = document.getElementById('kds-col-ready');
+
+      const receivedOrders = db.orders.filter(o => o.status === 'Received');
+      const cookingOrders = db.orders.filter(o => o.status === 'Kitchen');
+      const readyOrders = db.orders.filter(o => o.status === 'Ready');
+
+      document.getElementById('kds-count-received').innerText = receivedOrders.length;
+      document.getElementById('kds-count-cooking').innerText = cookingOrders.length;
+      document.getElementById('kds-count-ready').innerText = readyOrders.length;
+      document.getElementById('kds-stat-total').innerText = `${receivedOrders.length + cookingOrders.length + readyOrders.length} Tickets`;
+
+      // Render Received Column
+      colReceived.innerHTML = receivedOrders.length === 0 ? renderEmptyKdsCol("No new tickets") :
+        receivedOrders.map(o => renderKdsTicketCard(o, 'Received')).join('');
+
+      // Render Cooking Column
+      colCooking.innerHTML = cookingOrders.length === 0 ? renderEmptyKdsCol("No active cooking") :
+        cookingOrders.map(o => renderKdsTicketCard(o, 'Kitchen')).join('');
+
+      // Render Ready Column
+      colReady.innerHTML = readyOrders.length === 0 ? renderEmptyKdsCol("No tickets waiting pickup") :
+        readyOrders.map(o => renderKdsTicketCard(o, 'Ready')).join('');
+
+      lucide.createIcons();
+    }
+
+    function renderEmptyKdsCol(msg) {
+      return `
+        <div class="h-40 flex flex-col items-center justify-center text-center text-slate-500 text-xs">
+          <i data-lucide="check-circle" class="w-6 h-6 mb-1 text-slate-600"></i>
+          <span>${msg}</span>
+        </div>
+      `;
+    }
+
+    function renderKdsTicketCard(order, colType) {
+      const cust = db.customers.find(c => c.id === order.customerId);
+      const custName = cust ? cust.name : 'Walk-in Customer';
+      const itemsListHtml = order.items.map(i => `
+        <div class="flex items-center justify-between text-xs py-1 border-b border-white/5 last:border-0">
+          <span class="font-medium text-slate-100"><strong class="text-amber-400 font-mono text-sm">${i.quantity}x</strong> ${i.name}</span>
+          <span class="text-slate-400 font-mono text-[11px]">${formatRupees(i.subtotal)}</span>
+        </div>
+      `).join('');
+
+      let actionButtons = '';
+      if (colType === 'Received') {
+        actionButtons = `
+          <button onclick="advanceOrderStatus('${order.orderId}', 'Kitchen')" class="flex-1 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-amber-500/20">
+            <i data-lucide="flame" class="w-3.5 h-3.5"></i>
+            <span>Start Cooking</span>
+          </button>
+          <button onclick="cancelAndRefundOrder('${order.orderId}')" class="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs" title="Cancel & Refund">
+            <i data-lucide="ban" class="w-3.5 h-3.5"></i>
+          </button>
+        `;
+      } else if (colType === 'Kitchen') {
+        actionButtons = `
+          <button onclick="advanceOrderStatus('${order.orderId}', 'Ready')" class="flex-1 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-500/20">
+            <i data-lucide="bell" class="w-3.5 h-3.5"></i>
+            <span>Mark as Ready</span>
+          </button>
+          <button onclick="advanceOrderStatus('${order.orderId}', 'Received')" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 text-xs" title="Move Back">
+            <i data-lucide="undo-2" class="w-3.5 h-3.5"></i>
+          </button>
+        `;
+      } else if (colType === 'Ready') {
+        actionButtons = `
+          <button onclick="advanceOrderStatus('${order.orderId}', 'Completed')" class="flex-1 py-2 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-sky-500/20">
+            <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
+            <span>Handover & Complete</span>
+          </button>
+          <button onclick="openReceiptModal('${order.orderId}')" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs" title="View Bill Receipt">
+            <i data-lucide="receipt" class="w-3.5 h-3.5"></i>
+          </button>
+        `;
+      }
+
+      return `
+        <div class="glass-card rounded-xl p-3.5 space-y-2.5 border border-white/10 shadow-lg relative">
+          <!-- Ticket Header -->
+          <div class="flex items-center justify-between pb-2 border-b border-white/10">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-mono font-black text-sm text-amber-400">#TK-${order.tokenNo}</span>
+                <span class="text-[10px] font-mono text-slate-400">${order.orderId}</span>
+              </div>
+              <div class="text-[11px] text-slate-300 font-medium">${custName}</div>
+            </div>
+            <div class="text-right">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${order.orderType === 'Dine-In' ? 'bg-amber-500/20 text-amber-300' : 'bg-orange-500/20 text-orange-300'}">
+                ${order.orderType}
+              </span>
+              <p class="text-[10px] text-slate-400 font-mono mt-0.5">${order.timeLabel}</p>
+            </div>
+          </div>
+
+          <!-- Items Breakdown -->
+          <div class="space-y-1">
+            ${itemsListHtml}
+          </div>
+
+          <!-- Recipe Ingredient Check Indicator -->
+          <div class="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-1.5 text-[10px] text-emerald-300">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0"></i>
+            <span>Pantry Ingredients Verified & Deducted</span>
+          </div>
+
+          <!-- Action Controls -->
+          <div class="pt-1 flex gap-2">
+            ${actionButtons}
+          </div>
+        </div>
+      `;
+    }
+
+    function advanceOrderStatus(orderId, newStatus) {
+      const order = db.orders.find(o => o.orderId === orderId);
+      if (!order) return;
+
+      order.status = newStatus;
+      saveDatabase();
+
+      if (newStatus === 'Ready') {
+        playChime('kds_step');
+        showToast(`Token #TK-${order.tokenNo} is READY for pickup! Calling customer...`, "success");
+      } else if (newStatus === 'Completed') {
+        playChime('kds_step');
+        showToast(`Order ${orderId} delivered and completed`, "info");
+      } else {
+        playChime('kds_step');
+        showToast(`Order status updated to ${newStatus}`, "info");
+      }
+
+      renderKdsBoard();
+      updateTopBarMetrics();
+    }
+
+    function cancelAndRefundOrder(orderId) {
+      const order = db.orders.find(o => o.orderId === orderId);
+      if (!order) return;
+
+      if (!confirm(`Are you sure you want to cancel ${orderId} (#TK-${order.tokenNo})? Stock and wallet balance will be restored.`)) {
+        return;
+      }
+
+      // 1. Mark Order as Cancelled
+      order.status = 'Cancelled';
+
+      // 2. Mark Relational Bill as Refunded
+      const bill = db.bills.find(b => b.orderId === orderId);
+      if (bill) {
+        bill.paymentStatus = 'Refunded';
+
+        // Refund wallet balance if paid via wallet
+        if (bill.paymentMethod === 'Wallet') {
+          const cust = db.customers.find(c => c.id === order.customerId);
+          if (cust) {
+            cust.walletBalance = +(cust.walletBalance + bill.totalAmount).toFixed(2);
+          }
+        }
+      }
+
+      // 3. Restore Food Item Stock
+      order.items.forEach(cartItem => {
+        const food = db.foodItems.find(f => f.id === cartItem.itemId);
+        if (food) {
+          food.stockQuantity += cartItem.quantity;
+        }
+
+        // Restore pantry ingredients
+        const recipeList = db.recipes[cartItem.itemId];
+        if (recipeList) {
+          recipeList.forEach(rec => {
+            const ing = db.ingredients.find(i => i.id === rec.ingId);
+            if (ing) {
+              const restoredQty = +(rec.qty * cartItem.quantity).toFixed(3);
+              ing.stockInPantry = +(ing.stockInPantry + restoredQty).toFixed(3);
+            }
+          });
+        }
+      });
+
+      // 4. Log Reversal in Stock Logs
+      db.stockLogs.unshift({
+        logId: `LOG-REV-${Math.floor(1000 + Math.random() * 9000)}`,
+        orderId: orderId,
+        ingredientId: 'ALL',
+        ingredientName: 'Reversed Recipe Ingredients',
+        deductedQty: 0,
+        unit: 'reversal',
+        status: 'Reversed (Cancelled)',
+        timestamp: new Date().toISOString()
+      });
+
+      saveDatabase();
+      playChime('cancel');
+      showToast(`Order ${orderId} cancelled & full refund issued`, "warning");
+
+      renderKdsBoard();
+      updateTopBarMetrics();
+    }
+
+    /* =========================================================================
+       9. MENU & INVENTORY MANAGEMENT (CRUD)
+       ========================================================================= */
+
+    let currentInventorySubtab = 'items';
+
+    function switchInventorySubtab(subtab) {
+      currentInventorySubtab = subtab;
+      const subItems = document.getElementById('subtab-items-container');
+      const subPantry = document.getElementById('subtab-pantry-container');
+      const subRecipes = document.getElementById('subtab-recipes-container');
+
+      const btnItems = document.getElementById('subtab-btn-items');
+      const btnPantry = document.getElementById('subtab-btn-pantry');
+      const btnRecipes = document.getElementById('subtab-btn-recipes');
+
+      const btnAddFood = document.getElementById('btn-add-food');
+      const btnRestockPantry = document.getElementById('btn-restock-pantry');
+
+      [btnItems, btnPantry, btnRecipes].forEach(b => {
+        b.className = "px-4 py-2 rounded-lg font-medium text-slate-300 hover:text-white transition-all";
+      });
+
+      subItems.classList.add('hidden');
+      subPantry.classList.add('hidden');
+      subRecipes.classList.add('hidden');
+      btnAddFood.classList.add('hidden');
+      btnRestockPantry.classList.add('hidden');
+
+      if (subtab === 'items') {
+        subItems.classList.remove('hidden');
+        btnItems.className = "px-4 py-2 rounded-lg font-bold bg-amber-500 text-slate-950 shadow-sm transition-all";
+        btnAddFood.classList.remove('hidden');
+        renderInventoryItemsTable();
+      } else if (subtab === 'pantry') {
+        subPantry.classList.remove('hidden');
+        btnPantry.className = "px-4 py-2 rounded-lg font-bold bg-amber-500 text-slate-950 shadow-sm transition-all";
+        btnRestockPantry.classList.remove('hidden');
+        renderInventoryPantryTable();
+      } else if (subtab === 'recipes') {
+        subRecipes.classList.remove('hidden');
+        btnRecipes.className = "px-4 py-2 rounded-lg font-bold bg-amber-500 text-slate-950 shadow-sm transition-all";
+        renderRecipesGrid();
+      }
+      lucide.createIcons();
+    }
+
+    function renderInventoryView() {
+      switchInventorySubtab(currentInventorySubtab);
+    }
+
+    function renderInventoryItemsTable() {
+      const search = (document.getElementById('inv-items-search')?.value || '').toLowerCase().trim();
+      const tbody = document.getElementById('inv-items-tbody');
+
+      let filtered = db.foodItems.filter(f => {
+        if (search && !f.name.toLowerCase().includes(search)) return false;
+        return true;
+      });
+
+      document.getElementById('inv-items-count').innerText = `Total ${db.foodItems.length} menu items`;
+
+      tbody.innerHTML = filtered.map(item => {
+        const cat = db.categories.find(c => c.id === item.categoryId);
+        const isOutOfStock = item.stockQuantity <= 0;
+        const isLow = item.stockQuantity > 0 && item.stockQuantity <= 5;
+
+        return `
+          <tr class="hover:bg-white/5 transition-colors">
+            <td class="py-3 px-4 font-mono font-bold text-amber-400">#${item.id}</td>
+            <td class="py-3 px-4 font-semibold text-white">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full ${item.veg ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
+                <span>${item.name}</span>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-slate-300">${cat ? cat.name : '-'}</td>
+            <td class="py-3 px-4 font-mono font-bold text-amber-300">${formatRupees(item.price, 0)}</td>
+            <td class="py-3 px-4 text-slate-400">${item.prepTime || '8 min'}</td>
+            <td class="py-3 px-4 font-mono font-bold ${isOutOfStock ? 'text-rose-400' : isLow ? 'text-amber-400' : 'text-slate-200'}">
+              ${item.stockQuantity} portions
+            </td>
+            <td class="py-3 px-4">
+              ${isOutOfStock ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">Out of Stock</span>` :
+                isLow ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Low Stock</span>` :
+                `<span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Available</span>`
+              }
+            </td>
+            <td class="py-3 px-4 text-right space-x-1.5">
+              <button onclick="quickAdjustFoodStock(${item.id}, 5)" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-emerald-400 text-[11px]" title="Add 5 portions">+5</button>
+              <button onclick="editFoodItemModal(${item.id})" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-slate-300 text-[11px]">Edit</button>
+              <button onclick="deleteFoodItem(${item.id})" class="px-2 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-[11px]">Del</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function quickAdjustFoodStock(itemId, amount) {
+      const item = db.foodItems.find(f => f.id === itemId);
+      if (item) {
+        item.stockQuantity += amount;
+        saveDatabase();
+        renderInventoryItemsTable();
+        showToast(`Stock updated for ${item.name} (+${amount})`, "info");
+      }
+    }
+
+    function deleteFoodItem(itemId) {
+      if (!confirm("Are you sure you want to remove this food item from the menu?")) return;
+      db.foodItems = db.foodItems.filter(f => f.id !== itemId);
+      delete db.recipes[itemId];
+      saveDatabase();
+      renderInventoryItemsTable();
+      showToast("Menu item removed", "info");
+    }
+
+    function openAddFoodModal() {
+      document.getElementById('food-modal-title').innerText = "Add New Food Item";
+      document.getElementById('food-form-id').value = "";
+      document.getElementById('food-form-name').value = "";
+      document.getElementById('food-form-price').value = "60";
+      document.getElementById('food-form-stock').value = "20";
+      document.getElementById('food-form-preptime').value = "10 min";
+      document.getElementById('food-form-desc').value = "";
+      document.getElementById('food-item-modal').classList.remove('hidden');
+      document.getElementById('food-item-modal').classList.add('flex');
+    }
+
+    function editFoodItemModal(itemId) {
+      const item = db.foodItems.find(f => f.id === itemId);
+      if (!item) return;
+
+      document.getElementById('food-modal-title').innerText = "Edit Food Item";
+      document.getElementById('food-form-id').value = item.id;
+      document.getElementById('food-form-name').value = item.name;
+      document.getElementById('food-form-cat').value = item.categoryId;
+      document.getElementById('food-form-price').value = item.price;
+      document.getElementById('food-form-stock').value = item.stockQuantity;
+      document.getElementById('food-form-preptime').value = item.prepTime || '8 min';
+      document.getElementById('food-form-veg').checked = item.veg;
+      document.getElementById('food-form-desc').value = item.desc || '';
+      document.getElementById('food-item-modal').classList.remove('hidden');
+      document.getElementById('food-item-modal').classList.add('flex');
+    }
+
+    function closeFoodItemModal() {
+      document.getElementById('food-item-modal').classList.add('hidden');
+      document.getElementById('food-item-modal').classList.remove('flex');
+    }
+
+    function saveFoodItem(e) {
+      e.preventDefault();
+      const idStr = document.getElementById('food-form-id').value;
+      const name = document.getElementById('food-form-name').value.trim();
+      const catId = parseInt(document.getElementById('food-form-cat').value);
+      const price = parseFloat(document.getElementById('food-form-price').value);
+      const stock = parseInt(document.getElementById('food-form-stock').value);
+      const prep = document.getElementById('food-form-preptime').value.trim();
+      const veg = document.getElementById('food-form-veg').checked;
+      const desc = document.getElementById('food-form-desc').value.trim();
+
+      if (idStr) {
+        // Edit existing
+        const item = db.foodItems.find(f => f.id === parseInt(idStr));
+        if (item) {
+          item.name = name;
+          item.categoryId = catId;
+          item.price = price;
+          item.stockQuantity = stock;
+          item.prepTime = prep;
+          item.veg = veg;
+          item.desc = desc;
+        }
+      } else {
+        // Create new
+        const newId = Math.max(...db.foodItems.map(f => f.id), 100) + 1;
+        db.foodItems.push({
+          id: newId,
+          name: name,
+          categoryId: catId,
+          price: price,
+          stockQuantity: stock,
+          prepTime: prep,
+          veg: veg,
+          desc: desc
+        });
+        // Default simple recipe
+        db.recipes[newId] = [ { ingId: 'ING_01', qty: 0.15, unit: 'kg' } ];
+      }
+
+      saveDatabase();
+      closeFoodItemModal();
+      renderInventoryItemsTable();
+      showToast("Menu item saved successfully", "success");
+    }
+
+    function renderInventoryPantryTable() {
+      const tbody = document.getElementById('inv-pantry-tbody');
+      tbody.innerHTML = db.ingredients.map(ing => {
+        const isCritical = ing.stockInPantry <= ing.minThreshold;
+        const isWarning = ing.stockInPantry > ing.minThreshold && ing.stockInPantry <= ing.minThreshold * 1.3;
+
+        return `
+          <tr class="hover:bg-white/5 transition-colors">
+            <td class="py-3 px-4 font-mono font-bold text-amber-400">${ing.id}</td>
+            <td class="py-3 px-4 font-semibold text-white">${ing.name}</td>
+            <td class="py-3 px-4 font-mono font-bold text-sm ${isCritical ? 'text-rose-400' : isWarning ? 'text-amber-400' : 'text-emerald-300'}">
+              ${ing.stockInPantry.toFixed(2)} ${ing.unit}
+            </td>
+            <td class="py-3 px-4 font-mono text-slate-400">${ing.minThreshold.toFixed(1)} ${ing.unit}</td>
+            <td class="py-3 px-4 font-mono text-slate-300">${formatRupees(ing.unitCost, 0)}/${ing.unit}</td>
+            <td class="py-3 px-4">
+              ${isCritical ? 
+                `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">⚠️ Below Threshold</span>` :
+                isWarning ?
+                `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">⚠️ Reorder Soon</span>` :
+                `<span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Adequate</span>`
+              }
+            </td>
+            <td class="py-3 px-4 text-right">
+              <button onclick="openRestockModalWithIng('${ing.id}')" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-semibold text-xs border border-emerald-500/30 transition-colors">
+                + Restock
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openRestockPantryModal() {
+      openRestockModalWithIng(db.ingredients[0]?.id);
+    }
+
+    function openRestockModalWithIng(ingId) {
+      const select = document.getElementById('restock-ing-select');
+      select.innerHTML = db.ingredients.map(ing => `
+        <option value="${ing.id}" ${ing.id === ingId ? 'selected' : ''}>${ing.name} (${ing.stockInPantry} ${ing.unit})</option>
+      `).join('');
+
+      updateRestockModalPreview();
+      document.getElementById('restock-modal').classList.remove('hidden');
+      document.getElementById('restock-modal').classList.add('flex');
+    }
+
+    function updateRestockModalPreview() {
+      const ingId = document.getElementById('restock-ing-select').value;
+      const ing = db.ingredients.find(i => i.id === ingId);
+      if (ing) {
+        document.getElementById('restock-current-label').innerText = `${ing.stockInPantry.toFixed(2)} ${ing.unit}`;
+      }
+    }
+
+    function closeRestockModal() {
+      document.getElementById('restock-modal').classList.add('hidden');
+      document.getElementById('restock-modal').classList.remove('flex');
+    }
+
+    function executePantryRestock() {
+      const ingId = document.getElementById('restock-ing-select').value;
+      const qty = parseFloat(document.getElementById('restock-qty-input').value);
+      if (isNaN(qty) || qty <= 0) {
+        showToast("Enter a valid restock quantity", "warning");
+        return;
+      }
+
+      const ing = db.ingredients.find(i => i.id === ingId);
+      if (ing) {
+        ing.stockInPantry = +(ing.stockInPantry + qty).toFixed(2);
+        saveDatabase();
+        closeRestockModal();
+        renderInventoryPantryTable();
+        updateTopBarMetrics();
+        showToast(`Restocked ${qty} ${ing.unit} of ${ing.name}`, "success");
+      }
+    }
+
+    function renderRecipesGrid() {
+      const container = document.getElementById('recipes-grid');
+      container.innerHTML = db.foodItems.map(food => {
+        const ingredientsList = db.recipes[food.id] || [];
+        const lines = ingredientsList.map(rec => {
+          const ing = db.ingredients.find(i => i.id === rec.ingId);
+          return `
+            <li class="flex items-center justify-between text-xs py-1 border-b border-white/5 last:border-0">
+              <span class="text-slate-300">${ing ? ing.name : rec.ingId}</span>
+              <span class="font-mono text-amber-300">${rec.qty} ${rec.unit}</span>
+            </li>
+          `;
+        }).join('');
+
+        return `
+          <div class="glass-card rounded-xl p-4 border border-white/10 space-y-3">
+            <div class="flex items-center justify-between">
+              <h4 class="font-bold text-sm text-white">${food.name}</h4>
+              <span class="font-mono text-xs text-amber-400 font-bold">${formatRupees(food.price, 0)}</span>
+            </div>
+            <ul class="space-y-0.5">
+              ${lines || '<li class="text-xs text-slate-500">No BOM ingredients linked</li>'}
+            </ul>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /* =========================================================================
+       10. ANALYTICS & RELATIONAL SQL QUERY SIMULATOR
+       ========================================================================= */
+
+    let hourlyChartInstance = null;
+    let categoryChartInstance = null;
+    let topDishesChartInstance = null;
+
+    function renderAnalyticsView() {
+      // 1. Calculate Financial KPIs
+      const paidBills = db.bills.filter(b => b.paymentStatus === 'Paid');
+      const totalRevenue = paidBills.reduce((acc, b) => acc + b.totalAmount, 0);
+      const totalOrdersCount = db.orders.length;
+      const activeKitchenCount = db.orders.filter(o => o.status === 'Kitchen' || o.status === 'Received').length;
+      const lowStockCount = db.ingredients.filter(i => i.stockInPantry <= i.minThreshold).length;
+      const avgTicket = totalOrdersCount > 0 ? (totalRevenue / totalOrdersCount).toFixed(0) : '0';
+
+      document.getElementById('kpi-revenue').innerText = formatRupees(totalRevenue);
+      document.getElementById('kpi-orders').innerText = totalOrdersCount;
+      document.getElementById('kpi-active-tickets').innerText = activeKitchenCount;
+      document.getElementById('kpi-low-stock').innerText = lowStockCount;
+      document.getElementById('kpi-avg-ticket').innerText = formatRupees(avgTicket, 0);
+
+      // 2. Render Charts
+      initHourlyChart();
+      initCategoryChart();
+      initTopDishesChart();
+
+      // 3. Render Default SQL query
+      runSqlQueryPreset(1);
+    }
+
+    function initHourlyChart() {
+      const ctx = document.getElementById('chart-hourly').getContext('2d');
+      if (hourlyChartInstance) hourlyChartInstance.destroy();
+
+      const hours = ['8 AM', '9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM'];
+      // Sample realistic distribution plus current orders
+      const orderCounts = [4, 7, 12, 19, 28, 35, 22, 14, 18];
+
+      hourlyChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: hours,
+          datasets: [{
+            label: 'Orders Served',
+            data: orderCounts,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.15)',
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#fbbf24',
+            pointRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#94a3b8', font: { family: 'Inter', size: 10 } }
+            },
+            y: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#94a3b8', font: { family: 'Inter', size: 10 } }
+            }
+          }
+        }
+      });
+    }
+
+    function initCategoryChart() {
+      const ctx = document.getElementById('chart-category').getContext('2d');
+      if (categoryChartInstance) categoryChartInstance.destroy();
+
+      // Aggregate sales per category from orders
+      const catTotals = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      db.orders.forEach(order => {
+        if (order.status !== 'Cancelled') {
+          order.items.forEach(item => {
+            const food = db.foodItems.find(f => f.id === item.itemId);
+            if (food && catTotals[food.categoryId] !== undefined) {
+              catTotals[food.categoryId] += item.subtotal;
+            }
+          });
+        }
+      });
+
+      const labels = ['Breakfast', 'Lunch & Meals', 'Snacks', 'Beverages', 'Bakery'];
+      const dataValues = [catTotals[1] || 165, catTotals[2] || 420, catTotals[3] || 270, catTotals[4] || 175, catTotals[5] || 90];
+
+      categoryChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: dataValues,
+            backgroundColor: [
+              '#f59e0b', // amber
+              '#ea580c', // orange
+              '#10b981', // emerald
+              '#0284c7', // sky
+              '#8b5cf6'  // purple
+            ],
+            borderWidth: 2,
+            borderColor: '#0b1120'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#cbd5e1', font: { family: 'Inter', size: 10 }, boxWidth: 10 }
+            }
+          },
+          cutout: '68%'
+        }
+      });
+    }
+
+    function initTopDishesChart() {
+      const ctx = document.getElementById('chart-top-dishes').getContext('2d');
+      if (topDishesChartInstance) topDishesChartInstance.destroy();
+
+      // Calculate top items
+      const counts = {};
+      db.orders.forEach(o => {
+        if (o.status !== 'Cancelled') {
+          o.items.forEach(i => {
+            counts[i.name] = (counts[i.name] || 0) + i.quantity;
+          });
+        }
+      });
+
+      // Default baseline counts for visual impact
+      const defaultCounts = {
+        'Masala Dosa': 28,
+        'Paneer Butter Biryani': 24,
+        'Cold Coffee Float': 21,
+        'Madras Filter Coffee': 19,
+        'Veggie Supreme Burger': 16
+      };
+
+      const merged = { ...defaultCounts, ...counts };
+      const sortedKeys = Object.keys(merged).sort((a,b) => merged[b] - merged[a]).slice(0, 5);
+      const sortedVals = sortedKeys.map(k => merged[k]);
+
+      topDishesChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: sortedKeys,
+          datasets: [{
+            label: 'Portions Sold',
+            data: sortedVals,
+            backgroundColor: '#f59e0b',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#94a3b8', font: { family: 'Inter', size: 10 } }
+            },
+            y: {
+              grid: { display: false },
+              ticks: { color: '#e2e8f0', font: { family: 'Inter', size: 11 } }
+            }
+          }
+        }
+      });
+    }
+
+    /* -------------------------------------------------------------------------
+       SQL QUERY SIMULATOR PRESETS
+       ------------------------------------------------------------------------- */
+
+    let currentSqlDataset = { headers: [], rows: [] };
+
+    const SQL_PRESETS = {
+      1: {
+        title: "Daily Sales & Revenue Breakdown by Category",
+        executionTime: "1.2 ms · Hash Aggregate on idx_orders_category",
+        query: `SELECT 
+    c.name AS category_name,
+    COUNT(DISTINCT o.order_id) AS total_orders,
+    SUM(oi.quantity) AS items_sold,
+    PRINTF('₹%.2f', SUM(oi.subtotal)) AS gross_revenue
+FROM categories c
+JOIN food_items f ON c.id = f.category_id
+JOIN order_items oi ON f.id = oi.item_id
+JOIN orders o ON oi.order_id = o.order_id
+WHERE o.status != 'Cancelled'
+GROUP BY c.id, c.name
+ORDER BY SUM(oi.subtotal) DESC;`,
+        execute: () => {
+          const catMap = {};
+          db.categories.forEach(c => {
+            catMap[c.id] = { name: c.name, orderIds: new Set(), itemsSold: 0, revenue: 0 };
+          });
+
+          db.orders.forEach(o => {
+            if (o.status !== 'Cancelled') {
+              o.items.forEach(i => {
+                const food = db.foodItems.find(f => f.id === i.itemId);
+                if (food && catMap[food.categoryId]) {
+                  catMap[food.categoryId].orderIds.add(o.orderId);
+                  catMap[food.categoryId].itemsSold += i.quantity;
+                  catMap[food.categoryId].revenue += i.subtotal;
+                }
+              });
+            }
+          });
+
+          const rows = Object.values(catMap)
+            .sort((a,b) => b.revenue - a.revenue)
+            .map(c => [c.name, c.orderIds.size, c.itemsSold, `₹${c.revenue.toFixed(2)}`]);
+
+          return {
+            headers: ["Category Name", "Total Orders", "Items Sold", "Gross Revenue"],
+            rows: rows
+          };
+        }
+      },
+      2: {
+        title: "High-Demand Ingredients Consumption Log",
+        executionTime: "0.8 ms · Index Scan on idx_stock_usage_timestamp",
+        query: `SELECT 
+    sul.ingredient_name,
+    sul.unit,
+    PRINTF('%.2f', SUM(sul.deducted_qty)) AS total_consumed,
+    PRINTF('%.2f', i.stock_in_pantry) AS current_stock,
+    PRINTF('₹%.2f', SUM(sul.deducted_qty * i.unit_cost)) AS total_depletion_cost
+FROM stock_usage_logs sul
+JOIN ingredients i ON sul.ingredient_id = i.id
+WHERE sul.status = 'Deducted'
+GROUP BY sul.ingredient_id, sul.ingredient_name
+ORDER BY total_depletion_cost DESC;`,
+        execute: () => {
+          const map = {};
+          db.stockLogs.forEach(log => {
+            if (log.status === 'Deducted') {
+              if (!map[log.ingredientId]) {
+                const ing = db.ingredients.find(i => i.id === log.ingredientId);
+                map[log.ingredientId] = {
+                  name: log.ingredientName,
+                  unit: log.unit,
+                  consumed: 0,
+                  current: ing ? ing.stockInPantry : 0,
+                  costPerUnit: ing ? ing.unitCost : 0
+                };
+              }
+              map[log.ingredientId].consumed += log.deductedQty;
+            }
+          });
+
+          const rows = Object.values(map).map(m => [
+            m.name,
+            m.unit,
+            `${m.consumed.toFixed(2)} ${m.unit}`,
+            `${m.current.toFixed(2)} ${m.unit}`,
+            `₹${(m.consumed * m.costPerUnit).toFixed(2)}`
+          ]);
+
+          return {
+            headers: ["Ingredient Name", "Unit", "Total Consumed", "Current In Pantry", "Est. Cost Incurred"],
+            rows: rows
+          };
+        }
+      },
+      3: {
+        title: "Customer Wallet Balances & Spend Analysis",
+        executionTime: "1.4 ms · Nested Loop Join on customer_id",
+        query: `SELECT 
+    c.id AS customer_id,
+    c.name,
+    c.type AS affiliation,
+    c.roll_no AS campus_id,
+    PRINTF('₹%.2f', c.wallet_balance) AS live_balance,
+    COUNT(b.bill_id) AS total_bills_paid,
+    PRINTF('₹%.2f', COALESCE(SUM(b.total_amount), 0)) AS lifetime_spend
+FROM customers c
+LEFT JOIN orders o ON c.id = o.customer_id AND o.status != 'Cancelled'
+LEFT JOIN bills b ON o.order_id = b.order_id AND b.payment_status = 'Paid'
+GROUP BY c.id
+ORDER BY lifetime_spend DESC;`,
+        execute: () => {
+          const rows = db.customers.map(c => {
+            const custOrders = db.orders.filter(o => o.customerId === c.id && o.status !== 'Cancelled');
+            const totalSpend = custOrders.reduce((sum, o) => {
+              const b = db.bills.find(bill => bill.orderId === o.orderId);
+              return sum + (b ? b.totalAmount : 0);
+            }, 0);
+
+            return [
+              c.id,
+              c.name,
+              c.type,
+              c.rollNo,
+              `₹${c.walletBalance.toFixed(2)}`,
+              custOrders.length,
+              `₹${totalSpend.toFixed(2)}`
+            ];
+          }).sort((a,b) => parseFloat(b[6].replace('₹','')) - parseFloat(a[6].replace('₹','')));
+
+          return {
+            headers: ["Customer ID", "Customer Name", "Affiliation", "Campus Roll/ID", "Wallet Balance", "Bills Paid", "Total Spend"],
+            rows: rows
+          };
+        }
+      },
+      4: {
+        title: "Critical Low-Stock Pantry Ingredients (Threshold Breach)",
+        executionTime: "0.6 ms · Filter on stock_in_pantry <= min_threshold",
+        query: `SELECT 
+    i.id AS ingredient_id,
+    i.name,
+    PRINTF('%.2f %s', i.stock_in_pantry, i.unit) AS current_stock,
+    PRINTF('%.2f %s', i.min_threshold, i.unit) AS min_threshold,
+    PRINTF('%.2f %s', (i.min_threshold - i.stock_in_pantry), i.unit) AS shortfall,
+    PRINTF('₹%.2f', (i.min_threshold - i.stock_in_pantry) * i.unit_cost) AS est_reorder_cost,
+    'CRITICAL REORDER' AS inventory_status
+FROM ingredients i
+WHERE i.stock_in_pantry <= i.min_threshold
+ORDER BY shortfall DESC;`,
+        execute: () => {
+          const low = db.ingredients.filter(i => i.stockInPantry <= i.minThreshold);
+          const rows = low.map(i => {
+            const shortfall = Math.max(0, i.minThreshold - i.stockInPantry);
+            return [
+              i.id,
+              i.name,
+              `${i.stockInPantry.toFixed(2)} ${i.unit}`,
+              `${i.minThreshold.toFixed(2)} ${i.unit}`,
+              `${shortfall.toFixed(2)} ${i.unit}`,
+              `₹${(shortfall * i.unitCost).toFixed(2)}`,
+              'ALERT: LOW STOCK'
+            ];
+          });
+
+          return {
+            headers: ["Ingredient ID", "Ingredient Name", "Current Stock", "Min Threshold", "Shortfall", "Est. Restock Cost", "Alert Level"],
+            rows: rows.length > 0 ? rows : [["None", "All ingredients adequately stocked", "-", "-", "-", "-", "NORMAL"]]
+          };
+        }
+      },
+      5: {
+        title: "Order Cancellation & Refund Audit Trail",
+        executionTime: "0.9 ms · Sequential Scan on orders WHERE status = 'Cancelled'",
+        query: `SELECT 
+    o.order_id,
+    b.bill_id,
+    c.name AS customer_name,
+    b.payment_method,
+    PRINTF('₹%.2f', b.total_amount) AS refunded_amount,
+    b.transaction_ref,
+    o.timestamp AS cancellation_time
+FROM orders o
+JOIN bills b ON o.order_id = b.order_id
+JOIN customers c ON o.customer_id = c.id
+WHERE o.status = 'Cancelled' OR b.payment_status = 'Refunded'
+ORDER BY o.timestamp DESC;`,
+        execute: () => {
+          const cancelledOrders = db.orders.filter(o => o.status === 'Cancelled');
+          const rows = cancelledOrders.map(o => {
+            const b = db.bills.find(bill => bill.orderId === o.orderId);
+            const c = db.customers.find(cust => cust.id === o.customerId);
+            return [
+              o.orderId,
+              b ? b.billId : 'N/A',
+              c ? c.name : 'Unknown',
+              b ? b.paymentMethod : 'N/A',
+              b ? `₹${b.totalAmount.toFixed(2)}` : '₹0.00',
+              b ? b.transactionRef : 'REFUND-AUTO',
+              new Date(o.timestamp).toLocaleTimeString()
+            ];
+          });
+
+          return {
+            headers: ["Order ID", "Bill ID", "Customer Name", "Original Payment", "Refunded Amount", "Ref ID", "Time"],
+            rows: rows.length > 0 ? rows : [["No cancellations recorded today", "-", "-", "-", "-", "-", "-"]]
+          };
+        }
+      }
+    };
+
+    function runSqlQueryPreset(presetNum) {
+      // Update Button Styles
+      [1, 2, 3, 4, 5].forEach(num => {
+        const btn = document.getElementById(`sql-btn-${num}`);
+        if (num === presetNum) {
+          btn.className = "px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap bg-amber-500 text-slate-950 transition-all shadow-md shadow-amber-500/20";
+        } else {
+          btn.className = "px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap bg-white/5 hover:bg-white/10 text-slate-300 transition-all";
+        }
+      });
+
+      const preset = SQL_PRESETS[presetNum];
+      if (!preset) return;
+
+      document.getElementById('sql-query-title').innerText = preset.title;
+      document.getElementById('sql-execution-time').innerText = `Execution: ${preset.executionTime}`;
+      document.getElementById('sql-code-display').innerText = preset.query;
+
+      // Execute Simulated Query
+      const result = preset.execute();
+      currentSqlDataset = result;
+
+      // Render Thead
+      const thead = document.getElementById('sql-table-thead');
+      thead.innerHTML = `<tr>${result.headers.map(h => `<th class="py-2.5 px-3.5">${h}</th>`).join('')}</tr>`;
+
+      // Render Tbody
+      const tbody = document.getElementById('sql-table-tbody');
+      tbody.innerHTML = result.rows.map(row => `
+        <tr class="hover:bg-white/5 transition-colors">
+          ${row.map(cell => `<td class="py-2.5 px-3.5 font-mono">${cell}</td>`).join('')}
+        </tr>
+      `).join('');
+
+      document.getElementById('sql-result-rows-count').innerText = `${result.rows.length} rows returned`;
+    }
+
+    function exportSqlResultCsv() {
+      if (!currentSqlDataset.headers.length) {
+        showToast("No query result to export", "warning");
+        return;
+      }
+
+      let csv = currentSqlDataset.headers.join(',') + '\n';
+      currentSqlDataset.rows.forEach(r => {
+        csv += r.map(val => `"${String(val).replace(/"/g, '""')}"`).join(',') + '\n';
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `CampusBistro_Report_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("Query result exported as CSV", "success");
+    }
+
+    /* =========================================================================
+       11. ORDERS & BILLING AUDIT LEDGER
+       ========================================================================= */
+
+    function renderLedgerTable() {
+      const statusFilter = document.getElementById('ledger-status-filter').value;
+      const paymentFilter = document.getElementById('ledger-payment-filter').value;
+      const search = document.getElementById('ledger-search').value.toLowerCase().trim();
+      const tbody = document.getElementById('ledger-tbody');
+
+      let filtered = db.orders.filter(order => {
+        if (statusFilter !== 'ALL' && order.status !== statusFilter) return false;
+        
+        const bill = db.bills.find(b => b.orderId === order.orderId);
+        if (paymentFilter !== 'ALL' && (!bill || bill.paymentMethod !== paymentFilter)) return false;
+
+        if (search) {
+          const cust = db.customers.find(c => c.id === order.customerId);
+          const custName = cust ? cust.name.toLowerCase() : '';
+          const matchOrder = order.orderId.toLowerCase().includes(search);
+          const matchToken = String(order.tokenNo).includes(search);
+          if (!custName.includes(search) && !matchOrder && !matchToken) return false;
+        }
+
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="9" class="py-12 text-center text-slate-500 font-mono text-xs">
+              No relational transactions found matching filter parameters
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(order => {
+        const bill = db.bills.find(b => b.orderId === order.orderId);
+        const cust = db.customers.find(c => c.id === order.customerId);
+        const itemsSummary = order.items.map(i => `${i.quantity}x ${i.name}`).join(', ');
+
+        let statusBadge = '';
+        if (order.status === 'Completed') statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Completed</span>';
+        else if (order.status === 'Kitchen') statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Cooking</span>';
+        else if (order.status === 'Ready') statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">Ready</span>';
+        else if (order.status === 'Received') statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/20 text-slate-300 border border-slate-500/30">Queued</span>';
+        else if (order.status === 'Cancelled') statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">Cancelled</span>';
+
+        return `
+          <tr class="hover:bg-white/5 transition-colors">
+            <td class="py-3 px-4">
+              <span class="font-mono font-bold text-amber-400">#TK-${order.tokenNo}</span>
+              <span class="block text-[10px] text-slate-400 font-mono">${order.orderId}</span>
+            </td>
+            <td class="py-3 px-4 font-mono text-slate-300">${bill ? bill.billId : 'N/A'}</td>
+            <td class="py-3 px-4">
+              <span class="font-semibold text-white">${cust ? cust.name : 'Walk-in'}</span>
+              <span class="block text-[10px] text-slate-400">${cust ? cust.rollNo : ''}</span>
+            </td>
+            <td class="py-3 px-4 text-slate-300 max-w-xs truncate" title="${itemsSummary}">${itemsSummary}</td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-white/5 text-slate-300">
+                ${bill ? bill.paymentMethod : 'N/A'}
+              </span>
+            </td>
+            <td class="py-3 px-4 font-mono font-bold text-amber-300">
+              ₹${bill ? bill.totalAmount.toFixed(2) : '0.00'}
+            </td>
+            <td class="py-3 px-4 font-mono text-slate-400 text-[11px]">${order.timeLabel || 'Recent'}</td>
+            <td class="py-3 px-4">${statusBadge}</td>
+            <td class="py-3 px-4 text-right">
+              <button onclick="openReceiptModal('${order.orderId}')" class="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-slate-200 text-xs transition-colors">
+                Receipt
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    /* =========================================================================
+       12. RECEIPT MODAL & PRINTING
+       ========================================================================= */
+
+    function openReceiptModal(orderId) {
+      const order = db.orders.find(o => o.orderId === orderId);
+      if (!order) return;
+
+      const bill = db.bills.find(b => b.orderId === orderId);
+      const cust = db.customers.find(c => c.id === order.customerId);
+
+      const itemsRows = order.items.map(item => `
+        <div class="flex justify-between py-1 border-b border-dashed border-slate-300">
+          <span>${item.quantity}x ${item.name}</span>
+          <span>₹${item.subtotal.toFixed(2)}</span>
+        </div>
+      `).join('');
+
+      const bodyHtml = `
+        <div class="text-center pb-3 border-b-2 border-dashed border-slate-400">
+          <h2 class="font-bold text-base tracking-tight text-slate-900">CAMPUSBISTRO CANTEEN</h2>
+          <p class="text-[10px] text-slate-600">College Food Court & Cafeteria Block A</p>
+          <p class="text-[10px] text-slate-600 font-mono">GSTIN: 27AABCC1234F1Z5</p>
+        </div>
+
+        <div class="py-2 text-center bg-slate-100 rounded-lg my-2 border border-slate-200">
+          <span class="text-[10px] text-slate-500 uppercase tracking-wider block">Kitchen Token Number</span>
+          <span class="text-3xl font-black text-slate-900 font-mono">#TK-${order.tokenNo}</span>
+          <span class="text-[10px] text-slate-600 font-medium block mt-0.5">${order.orderType}</span>
+        </div>
+
+        <div class="space-y-1 text-[11px] text-slate-700">
+          <div class="flex justify-between">
+            <span>Bill No: <strong>${bill ? bill.billId : 'N/A'}</strong></span>
+            <span>Order: <strong>${order.orderId}</strong></span>
+          </div>
+          <div class="flex justify-between">
+            <span>Customer: <strong>${cust ? cust.name : 'Walk-in'}</strong></span>
+            <span>ID: <strong>${cust ? cust.rollNo : '-'}</strong></span>
+          </div>
+          <div class="flex justify-between text-slate-500">
+            <span>Date: ${new Date(order.timestamp).toLocaleDateString()}</span>
+            <span>Time: ${order.timeLabel}</span>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-300">
+          <div class="font-bold text-[11px] pb-1 border-b border-slate-300 flex justify-between">
+            <span>Item</span>
+            <span>Amount</span>
+          </div>
+          <div class="py-1">
+            ${itemsRows}
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-300 space-y-1 text-[11px]">
+          <div class="flex justify-between text-slate-600">
+            <span>Subtotal:</span>
+            <span>₹${bill ? bill.subtotal.toFixed(2) : '0.00'}</span>
+          </div>
+          <div class="flex justify-between text-slate-600">
+            <span>CGST + SGST (5%):</span>
+            <span>₹${bill ? bill.tax.toFixed(2) : '0.00'}</span>
+          </div>
+          ${bill && bill.discount > 0 ? `
+            <div class="flex justify-between text-emerald-700 font-medium">
+              <span>Campus Discount:</span>
+              <span>-₹${bill.discount.toFixed(2)}</span>
+            </div>
+          ` : ''}
+          <div class="flex justify-between font-bold text-sm text-slate-900 pt-1 border-t border-slate-400">
+            <span>TOTAL AMOUNT:</span>
+            <span>₹${bill ? bill.totalAmount.toFixed(2) : '0.00'}</span>
+          </div>
+        </div>
+
+        <div class="py-2 px-3 rounded bg-slate-100 text-[10px] text-slate-700 flex justify-between items-center border border-slate-200">
+          <span>Payment: <strong>${bill ? bill.paymentMethod : 'Cash'}</strong></span>
+          <span class="font-mono text-[9px] text-slate-500">REF: ${bill ? bill.transactionRef : 'CASH'}</span>
+        </div>
+
+        <div class="text-center pt-2 text-[10px] text-slate-500">
+          <p>Thank you for dining with us!</p>
+          <p class="font-mono text-[9px] mt-0.5">Please display Token # at pickup counter</p>
+        </div>
+      `;
+
+      document.getElementById('receipt-body').innerHTML = bodyHtml;
+      document.getElementById('receipt-modal').classList.remove('hidden');
+      document.getElementById('receipt-modal').classList.add('flex');
+    }
+
+    function closeReceiptModal() {
+      document.getElementById('receipt-modal').classList.add('hidden');
+      document.getElementById('receipt-modal').classList.remove('flex');
+    }
+
+    /* =========================================================================
+       13. WALLET TOP-UP MODAL
+       ========================================================================= */
+
+    function openWalletModal() {
+      const select = document.getElementById('wallet-cust-select');
+      select.innerHTML = db.customers.map(c => `
+        <option value="${c.id}" ${c.id === selectedCustomerId ? 'selected' : ''}>${c.name} (${c.rollNo})</option>
+      `).join('');
+
+      updateWalletModalPreview();
+      document.getElementById('wallet-modal').classList.remove('hidden');
+      document.getElementById('wallet-modal').classList.add('flex');
+    }
+
+    function updateWalletModalPreview() {
+      const custId = document.getElementById('wallet-cust-select').value;
+      const cust = db.customers.find(c => c.id === custId);
+      if (cust) {
+        document.getElementById('wallet-modal-current-bal').innerText = `₹${cust.walletBalance.toFixed(2)}`;
+      }
+    }
+
+    function setTopupAmount(amt) {
+      document.getElementById('wallet-amount-input').value = amt;
+    }
+
+    function closeWalletModal() {
+      document.getElementById('wallet-modal').classList.add('hidden');
+      document.getElementById('wallet-modal').classList.remove('flex');
+    }
+
+    function executeWalletTopup() {
+      const custId = document.getElementById('wallet-cust-select').value;
+      const amt = parseFloat(document.getElementById('wallet-amount-input').value);
+      if (isNaN(amt) || amt <= 0) {
+        showToast("Enter a valid recharge amount", "warning");
+        return;
+      }
+
+      const cust = db.customers.find(c => c.id === custId);
+      if (cust) {
+        cust.walletBalance = +(cust.walletBalance + amt).toFixed(2);
+        saveDatabase();
+        closeWalletModal();
+        updateCustomerBalanceDisplay();
+        updateCartTotals();
+        showToast(`Recharge of ₹${amt.toFixed(2)} successful for ${cust.name}! New balance: ₹${cust.walletBalance.toFixed(2)}`, "success");
+      }
+    }
+
+    /* =========================================================================
+       14. TOAST NOTIFICATIONS & METRICS SYNC
+       ========================================================================= */
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      let borderCol = 'border-amber-500/30';
+      let textCol = 'text-amber-300';
+      let icon = 'info';
+
+      if (type === 'success') {
+        borderCol = 'border-emerald-500/40 bg-emerald-950/90';
+        textCol = 'text-emerald-300';
+        icon = 'check-circle-2';
+      } else if (type === 'warning') {
+        borderCol = 'border-rose-500/40 bg-rose-950/90';
+        textCol = 'text-rose-300';
+        icon = 'alert-triangle';
+      } else {
+        borderCol = 'border-sky-500/40 bg-sky-950/90';
+        textCol = 'text-sky-300';
+        icon = 'info';
+      }
+
+      toast.className = `p-3 rounded-xl border backdrop-blur-md shadow-2xl flex items-center gap-3 text-xs font-medium ${borderCol} ${textCol} transition-all duration-300 transform translate-y-2 opacity-0`;
+      toast.innerHTML = `
+        <i data-lucide="${icon}" class="w-4 h-4 flex-shrink-0"></i>
+        <span>${message}</span>
+      `;
+
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      // Trigger animation
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    function updateTopBarMetrics() {
+      // Top Sales Today
+      const paidBills = db.bills.filter(b => b.paymentStatus === 'Paid');
+      const totalSales = paidBills.reduce((acc, b) => acc + b.totalAmount, 0);
+      document.getElementById('top-sales-metric').innerText = `₹${totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+
+      // Active Cooking
+      const activeTickets = db.orders.filter(o => o.status === 'Kitchen' || o.status === 'Received').length;
+      document.getElementById('top-cooking-metric').innerText = activeTickets;
+      document.getElementById('kds-badge-count').innerText = activeTickets;
+
+      // Pantry Alert
+      const lowStockCount = db.ingredients.filter(i => i.stockInPantry <= i.minThreshold).length;
+      const pantryBadge = document.getElementById('pantry-alert-badge');
+      if (lowStockCount > 0) {
+        pantryBadge.classList.remove('hidden');
+        pantryBadge.innerText = `${lowStockCount} Alert`;
+      } else {
+        pantryBadge.classList.add('hidden');
+      }
+    }
+
+    function initCustomerDropdown() {
+      const select = document.getElementById('cart-customer-select');
+      select.innerHTML = db.customers.map(c => `
+        <option value="${c.id}" ${c.id === selectedCustomerId ? 'selected' : ''}>${c.name} (${c.type} · ${c.rollNo})</option>
+      `).join('');
+      updateCustomerBalanceDisplay();
+    }
+
+    function startLiveClock() {
+      function tick() {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const clockEl = document.getElementById('live-clock');
+        if (clockEl) clockEl.innerText = timeStr;
+      }
+      tick();
+      setInterval(tick, 1000);
+    }
+
+    /* =========================================================================
+       15. APP INITIALIZATION
+       ========================================================================= */
+
+    function renderAll() {
+      initCustomerDropdown();
+      renderPosCategoryPills();
+      renderPosMenu();
+      renderCart();
+      renderKdsBoard();
+      updateTopBarMetrics();
+      startLiveClock();
+      lucide.createIcons();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadDatabase();
+      renderAll();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "name": "Institutional Event Registration & Venue Scheduling System",
+  "description": "Production-grade institutional event management, venue collision scheduling matrix, 3NF relational DBMS architecture, and role-based workflows.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
